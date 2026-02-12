@@ -2,6 +2,8 @@ import { Command } from 'commander';
 import packageJson from '../package.json' with { type: 'json' };
 import { addAskCommand } from './commands/ask.js';
 import { addNotebookCommand } from './commands/notebook.js';
+import { addCacheCommand } from './commands/cache.js';
+import { addPerfCommand } from './commands/perf.js';
 
 const program = new Command();
 
@@ -23,20 +25,9 @@ program
 
 addNotebookCommand(program);
 addAskCommand(program);
+addCacheCommand(program);
 
-program
-  .command('cache <command>')
-  .description('Manage response cache (clear, stats, status, disable)')
-  .action((command: string) => {
-    console.log(`cache ${command}: Not implemented`);
-  });
-
-program
-  .command('perf <command>')
-  .description('Performance monitoring (stats, reset, export)')
-  .action((command: string) => {
-    console.log(`perf ${command}: Not implemented`);
-  });
+addPerfCommand(program);
 
 program
   .command('cleanup')
