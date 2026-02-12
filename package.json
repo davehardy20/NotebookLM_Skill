@@ -5,12 +5,12 @@
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "notebooklm": "dist/cli.js"
+    "notebooklm": "./dist/cli.cjs"
   },
   "scripts": {
     "dev": "tsx watch src/cli.ts",
     "build": "tsup",
-    "build:binary": "pkg dist/cli.js --targets node20-macos-x64,node20-linux-x64,node20-win-x64 --out-path bin/",
+    "build:binary": "pkg dist/cli.cjs --target node18-macos-x64 --output bin/notebooklm",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -35,11 +35,11 @@
   },
   "packageManager": "pnpm@9.0.0",
   "dependencies": {
-    "chalk": "^5.3.0",
+    "chalk": "^4.1.2",
     "commander": "^12.0.0",
     "dotenv": "^17.2.4",
     "execa": "^8.0.1",
-    "ora": "^8.0.1",
+    "ora": "^5.4.1",
     "pino": "^8.21.0",
     "pino-pretty": "^10.3.1",
     "playwright": "^1.41.0",

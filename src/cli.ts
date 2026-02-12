@@ -60,6 +60,4 @@ export function parse(args?: string[]): void {
   program.parse(args);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  parse();
-}
+parse();

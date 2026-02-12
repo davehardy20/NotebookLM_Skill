@@ -17,7 +17,10 @@ function createLogger(): Logger {
     timestamp: stdTimeFunctions.isoTime,
   };
 
-  if (isDev) {
+  // Skip pino-pretty transport in pkg binary (transports don't work with pkg)
+  const isPkg = !!(process as any).pkg || process.execPath !== process.argv[0];
+
+  if (isDev && !isPkg) {
     return createPino(
       {
         ...pinoConfig,
