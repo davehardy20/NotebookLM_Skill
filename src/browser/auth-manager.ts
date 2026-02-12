@@ -13,7 +13,6 @@
 
 import { existsSync } from 'fs';
 import { readFile, writeFile, stat, unlink, rm } from 'fs/promises';
-import { join, dirname } from 'path';
 import { chromium, type BrowserContext } from 'playwright';
 import { AuthInfoSchema, type AuthInfo } from '../types/auth.js';
 import { AuthError, BrowserError } from '../core/errors.js';

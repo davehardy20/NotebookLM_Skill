@@ -5,9 +5,9 @@
  */
 
 import { promises as fs } from 'fs';
-import { Paths } from '../core/paths';
-import { Notebook, NotebookLibraryData, NotebookLibraryDataSchema } from '../types/notebook';
-import { logger } from '../core/logger';
+import { Paths } from '../core/paths.js';
+import { Notebook, NotebookLibraryData, NotebookLibraryDataSchema } from '../types/notebook.js';
+import { logger } from '../core/logger.js';
 
 /**
  * Manages a collection of NotebookLM notebooks with metadata
@@ -320,7 +320,7 @@ export class NotebookLibrary {
     let maxUseCount = 0;
 
     for (const notebook of Array.from(this.notebooks.values())) {
-      notebook.topics.forEach((topic) => totalTopics.add(topic));
+      notebook.topics.forEach((topic: string) => totalTopics.add(topic));
       totalUseCount += notebook.useCount;
 
       if (notebook.useCount > maxUseCount) {
