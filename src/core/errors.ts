@@ -73,6 +73,14 @@ export class NotFoundError extends AppError {
   }
 }
 
+export class CacheError extends AppError {
+  constructor(message: string) {
+    super(message, 'CACHE_ERROR', 500);
+    this.name = 'CacheError';
+    Object.setPrototypeOf(this, CacheError.prototype);
+  }
+}
+
 export function isAppError(error: unknown): error is AppError {
   return error instanceof AppError;
 }

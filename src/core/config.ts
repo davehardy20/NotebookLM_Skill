@@ -3,6 +3,7 @@
  * Loads from environment variables with Zod validation
  */
 
+import 'dotenv/config';
 import { z } from 'zod';
 import { Paths } from './paths.js';
 

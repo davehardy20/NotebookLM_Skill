@@ -30,3 +30,18 @@ export const NotebookLibraryDataSchema = z.object({
 });
 
 export type NotebookLibraryData = z.infer<typeof NotebookLibraryDataSchema>;
+
+/**
+ * Statistics about the notebook library.
+ * Ported from get_stats() method in notebook_manager.py.
+ */
+export const NotebookStatsSchema = z.object({
+  totalNotebooks: z.number().int().nonnegative().describe('Total number of notebooks in library'),
+  totalTopics: z.number().int().nonnegative().describe('Total number of unique topics across all notebooks'),
+  totalUseCount: z.number().int().nonnegative().describe('Total usage count across all notebooks'),
+  activeNotebook: NotebookSchema.nullable().describe('The currently active notebook, or null'),
+  mostUsedNotebook: NotebookSchema.nullable().describe('The most frequently used notebook, or null'),
+  libraryPath: z.string().describe('File path to the library data file'),
+});
+
+export type NotebookStats = z.infer<typeof NotebookStatsSchema>;
