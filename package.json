@@ -1,0 +1,60 @@
+{
+  "name": "notebooklm-skill",
+  "version": "1.0.0",
+  "description": "TypeScript port of NotebookLM Claude Code Skill with improved performance and single-binary distribution",
+  "main": "dist/index.js",
+  "type": "module",
+  "bin": {
+    "notebooklm": "dist/cli.js"
+  },
+  "scripts": {
+    "dev": "tsx watch src/cli.ts",
+    "build": "tsup src/index.ts src/cli.ts --format esm --dts",
+    "build:binary": "pkg dist/cli.js --targets node20-macos-x64,node20-linux-x64,node20-win-x64 --out-path bin/",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "lint": "eslint src/ --ext .ts",
+    "lint:fix": "eslint src/ --ext .ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "clean": "rm -rf dist/ bin/ coverage/"
+  },
+  "keywords": [
+    "notebooklm",
+    "claude-code",
+    "browser-automation",
+    "playwright",
+    "typescript"
+  ],
+  "author": "Dave Hardy",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@9.0.0",
+  "dependencies": {
+    "commander": "^12.0.0",
+    "playwright": "^1.41.0",
+    "pino": "^8.18.0",
+    "pino-pretty": "^10.3.1",
+    "zod": "^3.22.4",
+    "chalk": "^5.3.0",
+    "ora": "^8.0.1",
+    "execa": "^8.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3",
+    "tsup": "^8.0.1",
+    "tsx": "^4.7.0",
+    "vitest": "^1.2.0",
+    "@vitest/coverage-v8": "^1.2.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "prettier": "^3.2.4",
+    "pkg": "^5.8.1"
+  }
+}
