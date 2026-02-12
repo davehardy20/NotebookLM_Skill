@@ -1,7 +1,7 @@
 /**
  * Browser Pool Module for NotebookLM TypeScript Skill
  * Manages persistent browser sessions for performance optimization.
- * 
+ *
  * This module provides session reuse capabilities that eliminate the 3-5 second
  * browser launch overhead per query by keeping contexts alive between questions.
  * Async-first implementation with Playwright.
@@ -75,13 +75,13 @@ export interface PoolStats {
 export class NotebookLMSession {
   /** Unique session identifier (MD5 hash of notebook URL) */
   readonly id: string;
-  
+
   /** Notebook URL this session is associated with */
   notebookUrl: string;
-  
+
   /** Whether to run browser in headless mode */
   readonly headless: boolean;
-  
+
   /** Idle timeout in milliseconds */
   readonly idleTimeoutMs: number;
 
@@ -135,7 +135,7 @@ export class NotebookLMSession {
 
     // Start initialization
     this._initializationPromise = this._doInitialization();
-    
+
     try {
       await this._initializationPromise;
     } finally {
@@ -151,7 +151,7 @@ export class NotebookLMSession {
 
     try {
       const paths = Paths.getInstance();
-      
+
       // Launch persistent browser context
       this._context = await BrowserFactory.launchPersistentContext(
         chromium,
@@ -173,15 +173,15 @@ export class NotebookLMSession {
 
       this._initialized = true;
       this._lastUsed = Date.now();
-      
+
       logger.info(`Session ${this.id} initialized successfully`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       logger.error(`Failed to initialize session ${this.id}`, { error: message });
-      
+
       // Clean up on failure
       await this.close();
-      
+
       throw new BrowserError(`Failed to initialize session: ${message}`);
     }
   }
@@ -196,16 +196,16 @@ export class NotebookLMSession {
 
     for (const selector of QUERY_INPUT_SELECTORS) {
       try {
-        await this._page.waitForSelector(selector, { 
-          timeout: 10000, 
-          state: 'visible' 
+        await this._page.waitForSelector(selector, {
+          timeout: 10000,
+          state: 'visible',
         });
         return;
       } catch {
         continue;
       }
     }
-    
+
     throw new BrowserError('NotebookLM not ready - query input not found');
   }
 
@@ -217,11 +217,11 @@ export class NotebookLMSession {
     if (!this._initialized) {
       await this.initialize();
     }
-    
+
     if (!this._page) {
       throw new BrowserError('Page not available');
     }
-    
+
     this._lastUsed = Date.now();
     return this._page;
   }
@@ -232,18 +232,18 @@ export class NotebookLMSession {
    */
   async resetIfNeeded(notebookUrl: string): Promise<boolean> {
     if (notebookUrl !== this.notebookUrl) {
-      logger.debug(`Navigating to new notebook URL`, { 
-        from: this.notebookUrl, 
-        to: notebookUrl 
+      logger.debug(`Navigating to new notebook URL`, {
+        from: this.notebookUrl,
+        to: notebookUrl,
       });
-      
+
       this.notebookUrl = notebookUrl;
-      
+
       if (this._page) {
         await this._page.goto(notebookUrl, { waitUntil: 'domcontentloaded' });
         await this._waitForReady();
       }
-      
+
       return true;
     }
     return false;
@@ -260,7 +260,7 @@ export class NotebookLMSession {
 
     try {
       const currentUrl = this._page.url();
-      
+
       // Quick check - if we're on accounts.google.com, auth expired
       if (currentUrl.includes('accounts.google.com')) {
         logger.warn('Auth validation failed - on Google accounts page');
@@ -268,22 +268,22 @@ export class NotebookLMSession {
       }
 
       // Navigate to NotebookLM and check if we get redirected
-      await this._page.goto('https://notebooklm.google.com', { 
-        waitUntil: 'domcontentloaded', 
-        timeout: 5000 
+      await this._page.goto('https://notebooklm.google.com', {
+        waitUntil: 'domcontentloaded',
+        timeout: 5000,
       });
-      
+
       const newUrl = this._page.url();
       const isAuthenticated = !newUrl.includes('accounts.google.com');
-      
+
       if (!isAuthenticated) {
         logger.warn('Auth validation failed - redirected to Google accounts');
       }
-      
+
       return isAuthenticated;
     } catch (error) {
-      logger.warn('Auth validation error', { 
-        error: error instanceof Error ? error.message : String(error) 
+      logger.warn('Auth validation error', {
+        error: error instanceof Error ? error.message : String(error),
       });
       return false;
     }
@@ -303,7 +303,7 @@ export class NotebookLMSession {
    * Check if session has been idle too long
    */
   isExpired(): boolean {
-    return (Date.now() - this._lastUsed) > this.idleTimeoutMs;
+    return Date.now() - this._lastUsed > this.idleTimeoutMs;
   }
 
   /**
@@ -335,13 +335,13 @@ export class NotebookLMSession {
       // Reload page
       await this._page.reload({ waitUntil: 'domcontentloaded' });
       await this._waitForReady();
-      
+
       this._lastUsed = Date.now();
-      
+
       logger.debug(`Soft reset completed for session ${this.id}`);
     } catch (error) {
-      logger.warn(`Soft reset failed for session ${this.id}`, { 
-        error: error instanceof Error ? error.message : String(error) 
+      logger.warn(`Soft reset failed for session ${this.id}`, {
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -358,8 +358,8 @@ export class NotebookLMSession {
         this._context = null;
       }
     } catch (error) {
-      logger.warn(`Error closing context for session ${this.id}`, { 
-        error: error instanceof Error ? error.message : String(error) 
+      logger.warn(`Error closing context for session ${this.id}`, {
+        error: error instanceof Error ? error.message : String(error),
       });
     }
 
@@ -426,10 +426,7 @@ export class SessionPool {
    * Get or create a session for the given notebook URL.
    * Validates auth before returning existing sessions.
    */
-  async getSession(
-    notebookUrl: string, 
-    headless: boolean = true
-  ): Promise<NotebookLMSession> {
+  async getSession(notebookUrl: string, headless: boolean = true): Promise<NotebookLMSession> {
     const sessionKey = this._getSessionKey(notebookUrl, headless);
 
     // Check if session exists
@@ -442,13 +439,13 @@ export class SessionPool {
       this._sessions.set(sessionKey, session);
     } else {
       logger.debug(`Reusing existing session ${session.id}`);
-      
+
       // Validate auth before returning
       const isValid = await session.validateAuth();
       if (!isValid) {
         logger.warn(`Session ${session.id} auth invalid, recreating`);
         await session.close();
-        
+
         // Create new session
         session = new NotebookLMSession(notebookUrl, headless, this._idleTimeoutMs);
         this._sessions.set(sessionKey, session);
@@ -457,7 +454,7 @@ export class SessionPool {
 
     // Ensure we're on the right notebook URL
     await session.resetIfNeeded(notebookUrl);
-    
+
     return session;
   }
 
@@ -467,7 +464,7 @@ export class SessionPool {
    */
   async cleanupExpired(): Promise<number> {
     const expired: string[] = [];
-    
+
     for (const [key, session] of this._sessions.entries()) {
       if (session.isExpired()) {
         expired.push(key);
@@ -498,16 +495,16 @@ export class SessionPool {
     logger.info(`Closing all ${this._sessions.size} sessions`);
 
     const closePromises: Promise<void>[] = [];
-    
+
     for (const session of this._sessions.values()) {
       closePromises.push(session.close());
     }
 
     // Wait for all sessions to close
     await Promise.all(closePromises);
-    
+
     this._sessions.clear();
-    
+
     logger.info('All sessions closed');
   }
 
@@ -516,7 +513,7 @@ export class SessionPool {
    */
   getStats(): PoolStats {
     const sessions: SessionStats[] = [];
-    
+
     for (const session of this._sessions.values()) {
       sessions.push(session.getStats());
     }
@@ -558,16 +555,16 @@ export function setupCleanupHandlers(): void {
     if (isCleaningUp) {
       return;
     }
-    
+
     isCleaningUp = true;
-    
+
     try {
       logger.info('Cleaning up browser sessions...');
       await sessionPool.closeAll();
       logger.info('Cleanup completed');
     } catch (error) {
-      logger.error('Error during cleanup', { 
-        error: error instanceof Error ? error.message : String(error) 
+      logger.error('Error during cleanup', {
+        error: error instanceof Error ? error.message : String(error),
       });
     }
   }
@@ -596,19 +593,24 @@ export function setupCleanupHandlers(): void {
   });
 
   // Handle uncaught exceptions
-  process.on('uncaughtException', async (error) => {
-    logger.error('Uncaught exception', { 
-      error: error instanceof Error ? error.message : String(error) 
+  process.on('uncaughtException', async error => {
+    logger.error('Uncaught exception', {
+      error: error instanceof Error ? error.message : String(error),
     });
     await cleanup();
     process.exit(1);
   });
 
   // Handle unhandled rejections
-  process.on('unhandledRejection', async (reason) => {
-    logger.error('Unhandled rejection', { 
-      error: reason instanceof Error ? reason.message : String(reason) 
+  process.on('unhandledRejection', async (reason, promise) => {
+    const errorMessage =
+      reason instanceof Error ? `${reason.message}\n${reason.stack}` : String(reason);
+    logger.error('Unhandled rejection', {
+      error: errorMessage,
+      reasonType: typeof reason,
+      promise: String(promise),
     });
+    console.error('Unhandled Rejection:', errorMessage);
     await cleanup();
     process.exit(1);
   });

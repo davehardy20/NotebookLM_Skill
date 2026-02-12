@@ -113,7 +113,12 @@ export class NotebookLibrary {
       .replace(/[^a-z0-9-]/g, '');
 
     if (this.notebooks.has(notebookId)) {
-      throw new Error(`Notebook with ID '${notebookId}' already exists`);
+      const existing = this.notebooks.get(notebookId)!;
+      throw new Error(
+        `Notebook '${name}' (ID: ${notebookId}) already exists. ` +
+          `Current URL: ${existing.url}. ` +
+          `Use 'notebooklm notebook list' to see all notebooks or 'notebooklm notebook remove ${notebookId}' to replace it.`
+      );
     }
 
     const now = new Date().toISOString();
@@ -238,7 +243,7 @@ export class NotebookLibrary {
         notebook.useCases.join(' ').toLowerCase(),
       ];
 
-      if (searchable.some((field) => field.includes(queryLower))) {
+      if (searchable.some(field => field.includes(queryLower))) {
         results.push(notebook);
       }
     }

@@ -4,7 +4,7 @@
  * Async-first implementation with Playwright
  */
 
-import { readFile, writeFile } from 'fs/promises';
+import { readFile, writeFile, mkdir } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 import type { BrowserContext, Page, Route, Request, BrowserType } from 'playwright';
@@ -45,7 +45,7 @@ export class BrowserFactory {
   /**
    * Launch a persistent browser context with anti-detection features
    * and cookie workaround for Playwright bug #36139
-   * 
+   *
    * Uses playwright.chromium.launchPersistentContext for true persistence
    * (like Python implementation)
    */
@@ -57,6 +57,11 @@ export class BrowserFactory {
     logger.debug('Launching persistent browser context', { userDataDir, headless });
 
     try {
+      if (!existsSync(userDataDir)) {
+        await mkdir(userDataDir, { recursive: true });
+        logger.debug('Created user data directory', { userDataDir });
+      }
+
       const context = await chromium.launchPersistentContext(userDataDir, {
         channel: 'chrome',
         headless,
@@ -83,10 +88,7 @@ export class BrowserFactory {
    * Inject cookies from state.json if available
    * Workaround for Playwright bug #36139
    */
-  private static async injectCookies(
-    context: BrowserContext,
-    userDataDir: string
-  ): Promise<void> {
+  private static async injectCookies(context: BrowserContext, userDataDir: string): Promise<void> {
     // State file is sibling to browser profile directory
     const stateFile = join(dirname(userDataDir), 'state.json');
 
@@ -138,7 +140,11 @@ export function setupResourceBlocking(page: Page): void {
     const resourceType = request.resourceType();
 
     // Always block these resource types
-    if (ALWAYS_BLOCKED_RESOURCE_TYPES.includes(resourceType as (typeof ALWAYS_BLOCKED_RESOURCE_TYPES)[number])) {
+    if (
+      ALWAYS_BLOCKED_RESOURCE_TYPES.includes(
+        resourceType as (typeof ALWAYS_BLOCKED_RESOURCE_TYPES)[number]
+      )
+    ) {
       route.abort();
       return;
     }
@@ -168,10 +174,10 @@ export function setupMinimalBlocking(page: Page): void {
   logger.debug('Setting up minimal resource blocking');
 
   // Block common image formats
-  page.route('**/*.{png,jpg,jpeg,gif,webp,svg}', (route) => route.abort());
+  page.route('**/*.{png,jpg,jpeg,gif,webp,svg}', route => route.abort());
 
   // Block font files
-  page.route('**/*.{woff,woff2,ttf,otf}', (route) => route.abort());
+  page.route('**/*.{woff,woff2,ttf,otf}', route => route.abort());
 
   logger.debug('Minimal blocking configured');
 }
@@ -274,7 +280,7 @@ export async function waitForResponseOptimized(
  * Simple delay helper
  */
 function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
@@ -292,7 +298,7 @@ export class StealthUtils {
    */
   static async randomDelay(minMs: number = 100, maxMs: number = 500): Promise<void> {
     const delayMs = Math.random() * (maxMs - minMs) + minMs;
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    await new Promise(resolve => setTimeout(resolve, delayMs));
   }
 
   /**
@@ -323,7 +329,11 @@ export class StealthUtils {
     wpmMin: number = 320,
     wpmMax: number = 480
   ): Promise<void> {
-    logger.debug('Human typing', { selector, length: text.length, fastMode: StealthUtils.FAST_MODE });
+    logger.debug('Human typing', {
+      selector,
+      length: text.length,
+      fastMode: StealthUtils.FAST_MODE,
+    });
 
     // Fast path for short text in fast mode
     if (StealthUtils.FAST_MODE && text.length < 100) {
