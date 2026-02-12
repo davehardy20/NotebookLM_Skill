@@ -282,31 +282,6 @@ async function handleClearCommand(force?: boolean): Promise<void> {
   }
 }
 
-  if (!force) {
-    console.log(chalk.yellow('\n⚠️  This will permanently delete all query history.'));
-    console.log(chalk.gray('   Use --force to skip this confirmation.\n'));
-    
-    // In a real implementation, we'd use a prompt library
-    // For now, just show a message
-    console.log(chalk.gray('   To clear history, run: notebooklm history clear --force\n'));
-    return;
-  }
-
-  // Clear history by writing empty array
-  const fs = await import('fs/promises');
-  const pathModule = await import('path');
-  const { Paths } = await import('../core/paths.js');
-  
-  const historyFile = pathModule.join(Paths.getInstance().dataDir, 'query_history.json');
-  await fs.writeFile(
-    historyFile,
-    JSON.stringify({ queries: [], lastUpdated: new Date().toISOString() }, null, 2),
-    'utf-8'
-  );
-
-  console.log(chalk.green('\n✓ Query history cleared.\n'));
-}
-
 /**
  * Handle errors from history commands
  */
