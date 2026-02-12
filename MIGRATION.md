@@ -34,10 +34,10 @@ pnpm run build:binary
 
 ```bash
 # Option 1: Add to PATH
-export PATH="$PATH:/path/to/notebooklm-ts/bin"
+export PATH="$PATH:/path/to/notebooklm-ts/scripts"
 
 # Option 2: Create symlink
-ln -s /path/to/notebooklm-ts/bin/notebooklm /usr/local/bin/notebooklm
+ln -s /path/to/notebooklm-ts/scripts/notebooklm /usr/local/bin/notebooklm
 
 # Option 3: Use npx (if published to npm)
 npx notebooklm --version
@@ -45,54 +45,37 @@ npx notebooklm --version
 
 ## Data Migration
 
-### Library Data ✅ Fully Compatible
+### ✅ Seamless Migration - Same File Locations
 
-Your `library.json` file is fully compatible between Python and TypeScript versions.
+The TypeScript version uses the **exact same file locations** as the Python version for full backward compatibility:
 
-**Python location:**
+**Data Directory:**
 ```
-~/.local/share/notebooklm/library.json
-```
-
-**TypeScript location:**
-```
-~/.local/share/notebooklm/library.json
+~/.claude/skills/notebooklm/data/
 ```
 
-**No action required** - the TypeScript version will automatically read your existing library.
+**Files:**
+- `library.json` - Notebook library (fully compatible)
+- `auth_info.json` - Auth metadata
+- `browser_state/` - Browser session data
+- `cache/` - Response cache directory
 
-### Cache Data ✅ Fully Compatible
-
-Your `response_cache.json` file is fully compatible.
-
-**Python location:**
-```
-~/.cache/notebooklm/response_cache.json
-```
-
-**TypeScript location:**
-```
-~/.cache/notebooklm/response_cache.json
-```
-
-**No action required** - existing cached responses will work immediately.
+**No data migration required!** The TypeScript version will automatically read your existing Python data.
 
 ### Authentication ⚠️ Requires Re-setup
 
-Browser authentication state is NOT compatible between Python and TypeScript due to different storage formats.
+While library and cache data are compatible, browser authentication state needs to be recreated due to different storage formats between Python and TypeScript.
 
 **Migration steps:**
 ```bash
-# 1. Clear old Python auth (optional but recommended)
-# In Python directory:
-rm -rf ~/.local/share/notebooklm/auth_*
-
-# 2. Set up new auth with TypeScript
+# 1. Set up authentication with TypeScript
 notebooklm auth setup
 
-# 3. Verify authentication
+# 2. Verify authentication
 notebooklm auth validate
 ```
+
+**Note:** Your library.json and cache data will work immediately without any migration steps.
 
 ## CLI Command Mapping
 
@@ -216,10 +199,13 @@ Browser authentication state is not compatible. You must run:
 notebooklm auth setup
 ```
 
-### 2. Config File Location
+### 2. File Locations (Unchanged)
 
-Python used a custom config location. TypeScript uses XDG spec:
-- Review your custom paths if you changed data directories
+Both Python and TypeScript versions use the same file locations:
+- Data: `~/.claude/skills/notebooklm/data/`
+- Binary: `~/.claude/skills/notebooklm/scripts/`
+
+No changes needed to your existing setup.
 
 ### 3. CLI Syntax Differences
 
@@ -253,11 +239,11 @@ python run.py notebook list # Verify data is present
 ### Issue: Binary not found
 
 ```bash
-# Check if binary exists
-ls -la bin/notebooklm
+# Check if binary exists (in scripts folder)
+ls -la scripts/notebooklm
 
 # Make executable
-chmod +x bin/notebooklm
+chmod +x scripts/notebooklm
 
 # Or use node directly
 node dist/cli.cjs --version
@@ -280,8 +266,8 @@ notebooklm auth validate
 # Check library location
 notebooklm notebook stats
 
-# Verify file exists
-ls -la ~/.local/share/notebooklm/library.json
+# Verify file exists (same location as Python version)
+ls -la ~/.claude/skills/notebooklm/data/library.json
 ```
 
 ### Issue: Performance not improved

@@ -27,27 +27,17 @@ export class Paths {
   }
 
   get dataDir(): string {
-    const xdgDataHome = process.env.XDG_DATA_HOME;
-    if (xdgDataHome) {
-      return join(xdgDataHome, 'notebooklm');
-    }
-    return join(homedir(), '.local', 'share', 'notebooklm');
+    // Use skill directory for backward compatibility with Python version
+    return join(this.skillDir, 'data');
   }
 
   get configDir(): string {
-    const xdgConfigHome = process.env.XDG_CONFIG_HOME;
-    if (xdgConfigHome) {
-      return join(xdgConfigHome, 'notebooklm');
-    }
-    return join(homedir(), '.config', 'notebooklm');
+    return join(this.skillDir, 'config');
   }
 
   get cacheDir(): string {
-    const xdgCacheHome = process.env.XDG_CACHE_HOME;
-    if (xdgCacheHome) {
-      return join(xdgCacheHome, 'notebooklm');
-    }
-    return join(homedir(), '.cache', 'notebooklm');
+    // Use skill directory for backward compatibility
+    return join(this.skillDir, 'cache');
   }
 
   get browserStateDir(): string {
