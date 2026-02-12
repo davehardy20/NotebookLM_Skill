@@ -48,3 +48,6 @@ test-results/
 
 # Binary compilation
 pkg-cache/
+
+# Development/Planning
+.sisyphus/
