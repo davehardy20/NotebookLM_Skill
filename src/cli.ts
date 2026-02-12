@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import packageJson from '../package.json' with { type: 'json' };
+import { addAskCommand } from './commands/ask.js';
 
 const program = new Command();
 
@@ -26,15 +27,7 @@ program
     console.log(`notebook ${command}: Not implemented`);
   });
 
-program
-  .command('ask <question>')
-  .description('Ask a question to NotebookLM with optional notebook selection')
-  .option('-n, --notebook <id>', 'notebook ID to use')
-  .option('--no-cache', 'disable response caching')
-  .option('--no-pool', 'disable browser pool (use legacy mode)')
-  .action((question: string, _options: any) => {
-    console.log(`ask ${question}: Not implemented`);
-  });
+addAskCommand(program);
 
 program
   .command('cache <command>')
