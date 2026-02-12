@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import packageJson from '../package.json' with { type: 'json' };
 import { addAskCommand } from './commands/ask.js';
+import { addNotebookCommand } from './commands/notebook.js';
 
 const program = new Command();
 
@@ -20,13 +21,7 @@ program
     console.log(`auth ${command}: Not implemented`);
   });
 
-program
-  .command('notebook <command>')
-  .description('Manage notebook library (add, list, remove, select, search)')
-  .action((command: string) => {
-    console.log(`notebook ${command}: Not implemented`);
-  });
-
+addNotebookCommand(program);
 addAskCommand(program);
 
 program
