@@ -6,6 +6,7 @@
 import { Command } from 'commander';
 import ora, { Ora } from 'ora';
 import { askNotebookLM, resolveNotebookUrl } from '../ask.js';
+import { queryMultipleNotebooks, formatParallelResults } from '../parallel-ask.js';
 
 /**
  * Options for the ask command
@@ -14,6 +15,8 @@ interface AskCommandOptions {
   notebook?: string;
   notebookUrl?: string;
   notebookId?: string;
+  notebookIds?: string;
+  parallel?: boolean;
   noCache?: boolean;
   noPool?: boolean;
 }
@@ -30,6 +33,8 @@ export function addAskCommand(program: Command): void {
     .option('-n, --notebook <id>', 'notebook ID to use (alias for --notebook-id)')
     .option('--notebook-id <id>', 'notebook ID to use')
     .option('--notebook-url <url>', 'direct notebook URL to use')
+    .option('--notebook-ids <ids>', 'comma-separated list of notebook IDs for parallel query')
+    .option('--parallel', 'query multiple notebooks in parallel')
     .option('--no-cache', 'disable response caching')
     .option('--no-pool', 'disable browser pool (use legacy mode)')
     .action(async (question: string, options: AskCommandOptions) => {

@@ -1,9 +1,11 @@
 import { Command } from 'commander';
 import packageJson from '../package.json' with { type: 'json' };
+import { addAuthCommand } from './commands/auth.js';
 import { addAskCommand } from './commands/ask.js';
 import { addNotebookCommand } from './commands/notebook.js';
 import { addCacheCommand } from './commands/cache.js';
 import { addPerfCommand } from './commands/perf.js';
+import { addHistoryCommand } from './commands/history.js';
 
 const program = new Command();
 
@@ -16,18 +18,12 @@ program
   .option('-v, --verbose', 'enable verbose logging')
   .option('-c, --config <path>', 'path to configuration file');
 
-program
-  .command('auth <command>')
-  .description('Manage authentication (setup, status, refresh, logout)')
-  .action((command: string) => {
-    console.log(`auth ${command}: Not implemented`);
-  });
-
+addAuthCommand(program);
 addNotebookCommand(program);
 addAskCommand(program);
 addCacheCommand(program);
-
 addPerfCommand(program);
+addHistoryCommand(program);
 
 program
   .command('cleanup')

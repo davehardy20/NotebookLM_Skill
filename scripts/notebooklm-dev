@@ -1,0 +1,3 @@
+#!/bin/bash
+# Development wrapper - uses node directly to avoid binary issues
+node "$(dirname "$0")/../dist/cli.js" "$@"
