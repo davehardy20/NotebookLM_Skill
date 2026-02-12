@@ -12,6 +12,24 @@ export {
 } from './browser-utils.js';
 
 export {
+  AuthManager,
+  getAuthManager,
+  resetAuthManager,
+} from './auth-manager.js';
+
+export {
+  NotebookLMSession,
+  SessionPool,
+  sessionPool,
+  getPool,
+  setupCleanupHandlers,
+  AuthExpiredError,
+  BrowserCrashedError,
+  type SessionStats,
+  type PoolStats,
+} from './browser-pool.js';
+
+export {
   QUERY_INPUT_SELECTORS,
   RESPONSE_SELECTORS,
   THINKING_SELECTOR,
