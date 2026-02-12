@@ -5,15 +5,14 @@
 
 import { promises as fs } from 'fs';
 import { join } from 'path';
-import { Paths } from '../core/paths';
+import { Paths } from '../core/paths.js';
 import {
   QueryMetrics,
   SessionMetrics,
   PerformanceSummary,
   QueryMetricsSchema,
-  SessionMetricsSchema,
   PerformanceSummarySchema,
-} from '../types/performance';
+} from '../types/performance.js';
 
 /**
  * Counters for tracking query statistics
@@ -265,23 +264,9 @@ export class PerformanceMonitor {
     const total = this.counters.totalQueries;
 
     const avgTotal = this.timing.totalDuration / Math.max(total, 1);
-    const avgPool =
-      this.timing.poolDuration / Math.max(this.counters.poolQueries, 1);
-    const avgLegacy =
-      this.timing.legacyDuration / Math.max(this.counters.legacyQueries, 1);
-    const avgCache =
-      this.timing.cacheDuration / Math.max(this.counters.cachedQueries, 1);
 
     const successRate = this.counters.successfulQueries / Math.max(total, 1);
     const cacheHitRate = this.counters.cachedQueries / Math.max(total, 1);
-
-    let timeSaved = 0;
-    if (this.counters.cachedQueries > 0) {
-      const avgUncached =
-        (this.timing.totalDuration - this.timing.cacheDuration) /
-        Math.max(total - this.counters.cachedQueries, 1);
-      timeSaved = this.counters.cachedQueries * (avgUncached - avgCache);
-    }
 
     const summary: PerformanceSummary = {
       totalQueries: total,
@@ -340,6 +325,16 @@ export class PerformanceMonitor {
       poolSpeedup = ((avgLegacy - avgPool) / avgLegacy) * 100;
     }
 
+    let timeSaved = 0;
+    if (this.counters.cachedQueries > 0) {
+      const avgUncached =
+        (this.timing.totalDuration - this.timing.cacheDuration) /
+        Math.max(this.counters.totalQueries - this.counters.cachedQueries, 1);
+      const avgCache =
+        this.timing.cacheDuration / this.counters.cachedQueries;
+      timeSaved = this.counters.cachedQueries * (avgUncached - avgCache);
+    }
+
     const uptimeHours = (Date.now() / 1000 - this.startTime) / 3600;
 
     console.log('\n' + '='.repeat(60));
@@ -354,9 +349,7 @@ export class PerformanceMonitor {
     console.log('\n💾 Cache Performance:');
     console.log(`  Cached queries: ${summary.cachedQueries}`);
     console.log(`  Cache hit rate: ${(summary.cacheHitRate * 100).toFixed(1)}%`);
-    console.log(
-      `  Time saved: ${(summary.cacheDurationSeconds - summary.totalDurationSeconds + summary.cacheDurationSeconds).toFixed(2)}s`
-    );
+    console.log(`  Time saved: ${timeSaved.toFixed(2)}s`);
 
     console.log('\n🚀 Browser Pool Performance:');
     console.log(`  Pool queries: ${summary.poolQueries}`);

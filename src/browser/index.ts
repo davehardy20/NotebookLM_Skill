@@ -1,4 +1,16 @@
-export { BrowserFactory, setupResourceBlocking, setupMinimalBlocking, waitForResponseOptimized, StealthUtils } from './browser-utils.js';
+/**
+ * Browser module exports
+ * Centralized exports for all browser utilities
+ */
+
+export {
+  BrowserFactory,
+  setupResourceBlocking,
+  setupMinimalBlocking,
+  waitForResponseOptimized,
+  StealthUtils,
+} from './browser-utils.js';
+
 export {
   QUERY_INPUT_SELECTORS,
   RESPONSE_SELECTORS,
@@ -9,4 +21,9 @@ export {
   NOTEBOOK_TITLE_SELECTOR,
   ERROR_MESSAGE_SELECTORS,
   LOADING_INDICATOR_SELECTORS,
+  BLOCKED_PATTERNS,
+  ALWAYS_BLOCKED_RESOURCE_TYPES,
+  BROWSER_ARGS,
+  USER_AGENT,
+  TIMEOUTS,
 } from './selectors.js';

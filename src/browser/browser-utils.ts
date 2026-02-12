@@ -4,14 +4,39 @@
  * Async-first implementation with Playwright
  */
 
-import { chromium, type Browser, type BrowserContext, type Page, type Route, type Request } from 'playwright';
 import { readFile, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
+import { join, dirname } from 'path';
+import type { BrowserContext, Page, Route, Request, BrowserType } from 'playwright';
+import { BrowserError, TimeoutError } from '../core/errors.js';
 import { createChildLogger } from '../core/logger.js';
-import { getConfig } from '../core/config.js';
-import type { BrowserOptions } from '../types/browser.js';
+import {
+  BLOCKED_PATTERNS,
+  ALWAYS_BLOCKED_RESOURCE_TYPES,
+  BROWSER_ARGS,
+  USER_AGENT,
+  THINKING_SELECTOR,
+  RESPONSE_SELECTORS,
+} from './selectors.js';
 
 const logger = createChildLogger('BrowserUtils');
+
+/**
+ * Interface for browser state (cookies, localStorage, etc.)
+ */
+interface BrowserState {
+  cookies?: Array<{
+    name: string;
+    value: string;
+    domain: string;
+    path: string;
+    expires?: number;
+    httpOnly?: boolean;
+    secure?: boolean;
+    sameSite?: 'Strict' | 'Lax' | 'None';
+  }>;
+  origins?: unknown[];
+}
 
 /**
  * Factory for creating configured browser contexts with anti-detection features
@@ -20,49 +45,50 @@ export class BrowserFactory {
   /**
    * Launch a persistent browser context with anti-detection features
    * and cookie workaround for Playwright bug #36139
+   * 
+   * Uses playwright.chromium.launchPersistentContext for true persistence
+   * (like Python implementation)
    */
   static async launchPersistentContext(
-    options: BrowserOptions = {}
-  ): Promise<{ browser: Browser; context: BrowserContext }> {
-    const config = getConfig();
-    const mergedOptions = { ...options };
+    chromium: BrowserType,
+    userDataDir: string,
+    headless: boolean = true
+  ): Promise<BrowserContext> {
+    logger.debug('Launching persistent browser context', { userDataDir, headless });
 
-    logger.debug('Launching persistent browser context', {
-      headless: mergedOptions.headless,
-      userAgent: mergedOptions.userAgent ? 'custom' : 'default',
-    });
+    try {
+      const context = await chromium.launchPersistentContext(userDataDir, {
+        channel: 'chrome',
+        headless,
+        viewport: null,
+        ignoreDefaultArgs: ['--enable-automation'],
+        userAgent: USER_AGENT,
+        args: [...BROWSER_ARGS],
+      });
 
-    const browser = await chromium.launch({
-      headless: mergedOptions.headless ?? true,
-      args: config.browserArgs,
-      slowMo: mergedOptions.slowMo ?? 0,
-    });
+      // Cookie Workaround for Playwright bug #36139
+      // Session cookies (expires=-1) don't persist in user_data_dir automatically
+      await BrowserFactory.injectCookies(context, userDataDir);
 
-    const viewport = mergedOptions.viewport ?? { width: 1280, height: 720 };
-    const context = await browser.newContext({
-      userAgent: mergedOptions.userAgent ?? config.userAgent,
-      viewport: viewport as { width: number; height: number },
-      ignoreHTTPSErrors: mergedOptions.ignoreHttpsErrors ?? false,
-      locale: mergedOptions.locale ?? 'en-US',
-      timezoneId: mergedOptions.timezoneId,
-      acceptDownloads: mergedOptions.acceptDownloads ?? false,
-    });
-
-    // Cookie Workaround for Playwright bug #36139
-    // Session cookies (expires=-1) don't persist in user_data_dir automatically
-    await this._injectCookies(context);
-
-    logger.debug('Browser context launched successfully');
-    return { browser, context };
+      logger.debug('Browser context launched successfully');
+      return context;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Failed to launch browser context', { error: message });
+      throw new BrowserError(`Failed to launch browser context: ${message}`);
+    }
   }
 
   /**
    * Inject cookies from state.json if available
-   * Workaround for Playwright session cookie persistence issue
+   * Workaround for Playwright bug #36139
    */
-  private static async _injectCookies(context: BrowserContext): Promise<void> {
-    const config = getConfig();
-    const stateFile = config.stateFile;
+  private static async injectCookies(
+    context: BrowserContext,
+    userDataDir: string
+  ): Promise<void> {
+    // State file is sibling to browser profile directory
+    const stateFile = join(dirname(userDataDir), 'state.json');
 
     if (!existsSync(stateFile)) {
       logger.debug('State file not found, skipping cookie injection', { stateFile });
@@ -71,10 +97,9 @@ export class BrowserFactory {
 
     try {
       const stateContent = await readFile(stateFile, 'utf-8');
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const state = JSON.parse(stateContent) as { cookies?: Array<{ name: string; value: string }> };
+      const state: BrowserState = JSON.parse(stateContent);
 
-      if (state.cookies && Array.isArray(state.cookies) && state.cookies.length > 0) {
+      if (state.cookies && state.cookies.length > 0) {
         await context.addCookies(state.cookies);
         logger.debug('Injected cookies from state.json', { count: state.cookies.length });
       }
@@ -102,152 +127,118 @@ export class BrowserFactory {
 }
 
 /**
- * Setup resource blocking to improve page load performance
+ * Set up resource blocking for faster page loading
  * Blocks images, fonts, analytics, ads, and social widgets
  * Safe for text-based apps like NotebookLM
  */
-export async function setupResourceBlocking(page: Page): Promise<void> {
-  const blockedPatterns = [
-    // Images
-    /\.png$/i,
-    /\.jpg$/i,
-    /\.jpeg$/i,
-    /\.gif$/i,
-    /\.webp$/i,
-    /\.svg$/i,
-    /\.ico$/i,
-    // Fonts
-    /\.woff$/i,
-    /\.woff2$/i,
-    /\.ttf$/i,
-    /\.otf$/i,
-    /\.eot$/i,
-    // Analytics/Tracking
-    /google-analytics/i,
-    /gtm\.js/i,
-    /ga\.js/i,
-    /analytics/i,
-    /tracking/i,
-    /telemetry/i,
-    // Ads
-    /ads/i,
-    /adzerk/i,
-    /doubleclick/i,
-    // Social widgets
-    /facebook/i,
-    /twitter/i,
-    /linkedin/i,
-  ];
+export function setupResourceBlocking(page: Page): void {
+  logger.debug('Setting up resource blocking');
 
-  const blockedResourceTypes = ['image', 'font', 'media'];
-
-  await page.route('**/*', async (route: Route) => {
-    const request: Request = route.request();
+  page.route('**/*', (route: Route, request: Request) => {
     const resourceType = request.resourceType();
-    const url = request.url();
 
-    // Block by resource type
-    if (blockedResourceTypes.includes(resourceType)) {
-      await route.abort();
+    // Always block these resource types
+    if (ALWAYS_BLOCKED_RESOURCE_TYPES.includes(resourceType as (typeof ALWAYS_BLOCKED_RESOURCE_TYPES)[number])) {
+      route.abort();
       return;
     }
 
     // Block by URL pattern
-    for (const pattern of blockedPatterns) {
-      if (pattern.test(url)) {
-        await route.abort();
+    const url = request.url();
+    for (const pattern of BLOCKED_PATTERNS) {
+      const patternWithoutWildcard = pattern.replace('**/', '');
+      if (url.includes(patternWithoutWildcard) || url.endsWith(patternWithoutWildcard)) {
+        route.abort();
         return;
       }
     }
 
     // Allow everything else
-    await route.continue();
+    route.continue();
   });
 
-  logger.debug('Resource blocking enabled');
+  logger.debug('Resource blocking configured');
 }
 
 /**
- * Setup minimal resource blocking - only heavy resources
+ * Set up minimal blocking - only heavy resources
  * Use this if full blocking causes issues
  */
-export async function setupMinimalBlocking(page: Page): Promise<void> {
-  // Block images
-  await page.route('**/*.{png,jpg,jpeg,gif,webp,svg}', async (route: Route) => {
-    await route.abort();
-  });
+export function setupMinimalBlocking(page: Page): void {
+  logger.debug('Setting up minimal resource blocking');
 
-  // Block fonts
-  await page.route('**/*.{woff,woff2,ttf,otf}', async (route: Route) => {
-    await route.abort();
-  });
+  // Block common image formats
+  page.route('**/*.{png,jpg,jpeg,gif,webp,svg}', (route) => route.abort());
 
-  logger.debug('Minimal resource blocking enabled');
+  // Block font files
+  page.route('**/*.{woff,woff2,ttf,otf}', (route) => route.abort());
+
+  logger.debug('Minimal blocking configured');
+}
+
+/**
+ * Options for waitForResponseOptimized
+ */
+interface WaitForResponseOptions {
+  previousAnswer?: string;
+  timeout?: number;
+  thinkingSelector?: string;
+  responseSelector?: string;
 }
 
 /**
  * Wait for response with optimized exponential backoff polling
  * Much faster than fixed-interval polling
+ * Ports Python implementation with async/await improvements
  */
 export async function waitForResponseOptimized(
   page: Page,
-  options: {
-    previousAnswer?: string;
-    timeout?: number;
-    thinkingSelector?: string;
-    responseSelector?: string;
-  } = {}
+  options: WaitForResponseOptions = {}
 ): Promise<string> {
   const {
     previousAnswer,
-    timeout = 120000,
-    thinkingSelector = 'div.thinking-message',
-    responseSelector = '.to-user-container .message-text-content',
+    timeout = 120,
+    thinkingSelector = THINKING_SELECTOR,
+    responseSelector = RESPONSE_SELECTORS[0],
   } = options;
 
+  logger.debug('Starting optimized response detection', { timeout });
+
   const startTime = Date.now();
+  const timeoutMs = timeout * 1000;
   let pollInterval = 100; // Start fast (100ms)
   const maxInterval = 1000; // Cap at 1 second
   let stableCount = 0;
   let lastCandidate: string | null = null;
-  let lastPollTime = Date.now();
+  let lastPollTime = 0;
 
-  logger.debug('Starting optimized response polling', {
-    timeout,
-    thinkingSelector,
-    responseSelector,
-  });
-
-  while (Date.now() - startTime < timeout) {
+  while (Date.now() - startTime < timeoutMs) {
     // Adaptive polling - don't poll faster than interval
     const elapsed = Date.now() - lastPollTime;
     if (elapsed < pollInterval) {
-      await new Promise((resolve) => setTimeout(resolve, pollInterval - elapsed));
+      await delay(pollInterval - elapsed);
     }
 
     lastPollTime = Date.now();
 
     // Check if still thinking (fast path)
     try {
-      const thinkingElement = await page.$(thinkingSelector);
-      if (thinkingElement) {
-        const isVisible = await thinkingElement.isVisible();
-        if (isVisible) {
-          // Still thinking, increase interval slowly
-          pollInterval = Math.min(pollInterval * 1.3, maxInterval);
-          continue;
-        }
+      const thinking = await page.locator(thinkingSelector).first();
+      const isVisible = await thinking.isVisible().catch(() => false);
+      if (isVisible) {
+        // Still thinking, increase interval slowly
+        pollInterval = Math.min(pollInterval * 1.3, maxInterval);
+        continue;
       }
     } catch {
-      // Ignore errors in thinking check
+      // Element not found or other error - continue checking
     }
 
     // Check for response
     try {
-      const responseElements = await page.$$(responseSelector);
-      if (responseElements.length > 0) {
-        const latestElement = responseElements[responseElements.length - 1];
-        const latestText = (await latestElement.innerText()).trim();
+      const responses = await page.locator(responseSelector).all();
+      if (responses.length > 0) {
+        const latestText = (await responses[responses.length - 1].textContent())?.trim() || '';
 
         if (latestText && latestText !== previousAnswer) {
           if (latestText === lastCandidate) {
@@ -255,7 +246,7 @@ export async function waitForResponseOptimized(
             if (stableCount >= 2) {
               logger.debug('Response detected and stabilized', {
                 length: latestText.length,
-                stableCount,
+                duration: Date.now() - startTime,
               });
               return latestText;
             }
@@ -268,15 +259,22 @@ export async function waitForResponseOptimized(
         }
       }
     } catch {
-      // Ignore errors in response check
+      // Error querying responses - continue polling
     }
 
     // Exponential backoff when no changes
     pollInterval = Math.min(pollInterval * 1.2, maxInterval);
   }
 
-  logger.error('Response detection timeout', { timeout });
-  throw new Error(`No response within ${timeout}ms`);
+  logger.error('Response detection timed out', { timeout });
+  throw new TimeoutError(`No response within ${timeout}s`);
+}
+
+/**
+ * Simple delay helper
+ */
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -315,94 +313,99 @@ export class StealthUtils {
 
   /**
    * Type with human-like speed or fast mode
+   * Simulates realistic typing with variable delays based on WPM
    * Uses FAST_MODE toggle for short text (<100 chars)
    */
   static async humanType(
     page: Page,
     selector: string,
-    text: string
+    text: string,
+    wpmMin: number = 320,
+    wpmMax: number = 480
   ): Promise<void> {
-    try {
-      let element = await page.$(selector);
+    logger.debug('Human typing', { selector, length: text.length, fastMode: StealthUtils.FAST_MODE });
 
-      if (!element) {
-        try {
-          element = await page.waitForSelector(selector, { timeout: 2000 });
-        } catch {
-          logger.warn('Element not found for typing', { selector });
-          return;
-        }
-      }
-
-      // Fast mode for short text
-      if (StealthUtils.FAST_MODE && text.length < 100) {
-        await element.fill(text);
-        logger.debug('Fast mode typing', { selector, length: text.length });
-        return;
-      }
-
-      // Human-like typing
-      await element.click();
-
-      for (const char of text) {
-        // Random delay between 25-75ms per character
-        const charDelay = Math.random() * 50 + 25;
-        await element.type(char, { delay: charDelay });
-
-        // Occasional longer pauses (5% chance)
-        if (Math.random() < 0.05) {
-          const pauseMs = Math.random() * 250 + 150;
-          await new Promise((resolve) => setTimeout(resolve, pauseMs));
-        }
-      }
-
-      logger.debug('Human-like typing completed', { selector, length: text.length });
-    } catch (error) {
-      logger.error('Human type failed', {
-        selector,
-        error: error instanceof Error ? error.message : String(error),
-      });
+    // Fast path for short text in fast mode
+    if (StealthUtils.FAST_MODE && text.length < 100) {
+      await StealthUtils.fastType(page, selector, text);
+      return;
     }
+
+    // Find the element using locators
+    let element = page.locator(selector).first();
+    let count = await element.count();
+
+    if (count === 0) {
+      try {
+        await page.waitForSelector(selector, { timeout: 2000 });
+        element = page.locator(selector).first();
+        count = await element.count();
+      } catch {
+        // Timeout waiting for element
+      }
+    }
+
+    if (count === 0) {
+      logger.warn('Element not found for typing', { selector });
+      return;
+    }
+
+    // Click to focus
+    await element.click();
+
+    // Calculate typing delay based on WPM
+    const wpm = Math.random() * (wpmMax - wpmMin) + wpmMin;
+    const charsPerSecond = (wpm / 60) * 5; // Average 5 chars per word
+    const baseDelay = 1000 / charsPerSecond;
+
+    // Type with realistic delays
+    for (const char of text) {
+      const charDelay = baseDelay * (0.8 + Math.random() * 0.4); // ±20% variation
+      await element.press(char);
+      await delay(charDelay);
+
+      // Occasional pause (5% chance)
+      if (Math.random() < 0.05) {
+        const pauseDelay = Math.random() * 250 + 150; // 150-400ms pause
+        await delay(pauseDelay);
+      }
+    }
+
+    logger.debug('Human typing completed', { selector });
   }
 
   /**
    * Click with realistic mouse movement
+   * Moves mouse to element before clicking with natural delays
    */
   static async realisticClick(page: Page, selector: string): Promise<void> {
-    try {
-      const element = await page.$(selector);
-      if (!element) {
-        logger.warn('Element not found for click', { selector });
-        return;
-      }
+    logger.debug('Realistic click', { selector });
 
-      // Get element position
-      const box = await element.boundingBox();
-      if (box) {
-        const x = box.x + box.width / 2;
-        const y = box.y + box.height / 2;
+    const element = page.locator(selector).first();
+    const count = await element.count();
 
-        // Move mouse to element with steps for realism
-        await page.mouse.move(x, y);
-      }
-
-      // Random delay before click
-      await this.randomDelay(100, 300);
-
-      // Click
-      await element.click();
-
-      // Random delay after click
-      await this.randomDelay(100, 300);
-
-      logger.debug('Realistic click completed', { selector });
-    } catch (error) {
-      logger.error('Realistic click failed', {
-        selector,
-        error: error instanceof Error ? error.message : String(error),
-      });
+    if (count === 0) {
+      logger.warn('Element not found for click', { selector });
+      return;
     }
+
+    // Move mouse to element center for realism
+    const box = await element.boundingBox();
+    if (box) {
+      const x = box.x + box.width / 2;
+      const y = box.y + box.height / 2;
+      await page.mouse.move(x, y, { steps: 5 });
+    }
+
+    // Small delay before click
+    await StealthUtils.randomDelay(100, 300);
+
+    // Perform click
+    await element.click();
+
+    // Small delay after click
+    await StealthUtils.randomDelay(100, 300);
+
+    logger.debug('Realistic click completed', { selector });
   }
-
-
 }

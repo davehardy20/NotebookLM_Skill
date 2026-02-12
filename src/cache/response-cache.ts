@@ -10,32 +10,81 @@
  */
 
 import { createHash } from 'crypto';
-import { promises as fs } from 'fs';
+import { readFile, writeFile, mkdir } from 'fs/promises';
 import { dirname } from 'path';
-import { Paths } from '../core/paths';
-import { CacheEntry, CacheStats } from '../types/cache';
+import { z } from 'zod';
+import { Paths } from '../core/paths.js';
+import { logger } from '../core/logger.js';
+import { CacheEntry, CacheEntrySchema, CacheStats } from '../types/cache.js';
+
+const DEFAULT_MAX_SIZE = 100;
+const DEFAULT_TTL_SECONDS = 86400; // 24 hours
+const AUTO_SAVE_THRESHOLD = 5;
 
 /**
- * Internal cache entry with metadata
+ * Persisted cache state for JSON serialization with Zod validation
  */
-interface InternalCacheEntry extends CacheEntry {
-  ageSeconds(): number;
-  ageFormatted(): string;
-  isExpired(ttlSeconds: number): boolean;
-}
+const PersistedCacheStateSchema = z.object({
+  entries: z.record(z.string(), CacheEntrySchema),
+  stats: z.object({
+    hits: z.number().int().nonnegative().default(0),
+    misses: z.number().int().nonnegative().default(0),
+    evictions: z.number().int().nonnegative().default(0),
+    totalQueries: z.number().int().nonnegative().default(0),
+  }),
+  savedAt: z.number(),
+});
+
+type PersistedCacheState = z.infer<typeof PersistedCacheStateSchema>;
 
 /**
- * Persisted cache state
+ * Internal cache entry with helper methods
  */
-interface PersistedCacheState {
-  entries: Record<string, CacheEntry>;
-  stats: {
-    hits: number;
-    misses: number;
-    evictions: number;
-    totalQueries: number;
-  };
-  savedAt: number;
+class InternalCacheEntry {
+  question: string;
+  answer: string;
+  notebookUrl: string;
+  timestamp: number;
+  hitCount: number;
+
+  constructor(question: string, answer: string, notebookUrl: string, timestamp?: number, hitCount: number = 0) {
+    this.question = question;
+    this.answer = answer;
+    this.notebookUrl = notebookUrl;
+    this.timestamp = timestamp ?? Date.now() / 1000;
+    this.hitCount = hitCount;
+  }
+
+  isExpired(ttlSeconds: number): boolean {
+    return (Date.now() / 1000 - this.timestamp) > ttlSeconds;
+  }
+
+  ageSeconds(): number {
+    return Date.now() / 1000 - this.timestamp;
+  }
+
+  ageFormatted(): string {
+    const age = this.ageSeconds();
+    if (age < 60) {
+      return `${Math.floor(age)}s`;
+    } else if (age < 3600) {
+      return `${Math.floor(age / 60)}m`;
+    } else if (age < 86400) {
+      return `${Math.floor(age / 3600)}h`;
+    } else {
+      return `${Math.floor(age / 86400)}d`;
+    }
+  }
+
+  toCacheEntry(): CacheEntry {
+    return {
+      question: this.question,
+      answer: this.answer,
+      notebookUrl: this.notebookUrl,
+      timestamp: this.timestamp,
+      hitCount: this.hitCount,
+    };
+  }
 }
 
 /**
@@ -47,9 +96,6 @@ interface PersistedCacheState {
  * - CACHE_TTL_SECONDS: Time-to-live for entries (default: 86400 = 24 hours)
  */
 export class ResponseCache {
-  private static readonly DEFAULT_MAX_SIZE = 100;
-  private static readonly DEFAULT_TTL_SECONDS = 86400; // 24 hours
-
   private readonly maxSize: number;
   private readonly ttlSeconds: number;
   private readonly cacheFile: string;
@@ -72,8 +118,8 @@ export class ResponseCache {
     ttlSeconds?: number,
     cacheFile?: string
   ) {
-    this.maxSize = maxSize ?? ResponseCache.DEFAULT_MAX_SIZE;
-    this.ttlSeconds = ttlSeconds ?? ResponseCache.DEFAULT_TTL_SECONDS;
+    this.maxSize = maxSize ?? DEFAULT_MAX_SIZE;
+    this.ttlSeconds = ttlSeconds ?? DEFAULT_TTL_SECONDS;
 
     if (cacheFile) {
       this.cacheFile = cacheFile;
@@ -106,29 +152,32 @@ export class ResponseCache {
    */
   private async load(): Promise<void> {
     try {
-      const data = await fs.readFile(this.cacheFile, 'utf-8');
-      const state: PersistedCacheState = JSON.parse(data);
+      const data = await readFile(this.cacheFile, 'utf-8');
+      const parsed = JSON.parse(data);
+      const state = PersistedCacheStateSchema.parse(parsed);
 
-      // Load cache entries, skipping expired ones
-      Object.entries(state.entries).forEach(([key, entry]) => {
-        const internalEntry = this.createInternalEntry(entry);
+      for (const [key, entry] of Object.entries(state.entries)) {
+        const internalEntry = new InternalCacheEntry(
+          entry.question,
+          entry.answer,
+          entry.notebookUrl,
+          entry.timestamp,
+          entry.hitCount
+        );
         if (!internalEntry.isExpired(this.ttlSeconds)) {
           this.cache.set(key, internalEntry);
         }
-      });
-
-      // Load stats
-      if (state.stats) {
-        this.stats = { ...state.stats };
       }
 
-      console.log(`  📦 Loaded ${this.cache.size} cached responses`);
+      this.stats = { ...state.stats } as typeof this.stats;
+      logger.info(`Loaded ${this.cache.size} cached responses`);
     } catch (error) {
-      // File doesn't exist or is invalid - start fresh
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        console.warn(`  ⚠️ Could not load cache: ${error}`);
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        logger.debug('Cache file does not exist, starting with empty cache');
+      } else {
+        logger.warn(`Could not load cache: ${error}`);
+        this.cache.clear();
       }
-      this.cache.clear();
     }
   }
 
@@ -137,61 +186,23 @@ export class ResponseCache {
    */
   private async persistToFile(): Promise<void> {
     try {
-      // Ensure directory exists
-      await fs.mkdir(dirname(this.cacheFile), { recursive: true });
+      await mkdir(dirname(this.cacheFile), { recursive: true });
 
       const entries: Record<string, CacheEntry> = {};
-      this.cache.forEach((entry, key) => {
-        entries[key] = {
-          question: entry.question,
-          answer: entry.answer,
-          notebookUrl: entry.notebookUrl,
-          timestamp: entry.timestamp,
-          hitCount: entry.hitCount,
-        };
-      });
+      for (const [key, entry] of Array.from(this.cache.entries())) {
+        entries[key] = entry.toCacheEntry();
+      }
 
       const state: PersistedCacheState = {
         entries,
         stats: this.stats,
-        savedAt: Date.now(),
+        savedAt: Date.now() / 1000,
       };
 
-      await fs.writeFile(
-        this.cacheFile,
-        JSON.stringify(state, null, 2),
-        'utf-8'
-      );
+      await writeFile(this.cacheFile, JSON.stringify(state, null, 2), 'utf-8');
     } catch (error) {
-      console.warn(`  ⚠️ Could not save cache: ${error}`);
+      logger.warn(`Could not save cache: ${error}`);
     }
-  }
-
-  /**
-   * Create an internal cache entry with helper methods
-   */
-  private createInternalEntry(entry: CacheEntry): InternalCacheEntry {
-    return {
-      ...entry,
-      ageSeconds: function () {
-        return (Date.now() - this.timestamp) / 1000;
-      },
-      ageFormatted: function () {
-        const age = this.ageSeconds();
-        if (age < 60) {
-          return `${Math.floor(age)}s`;
-        } else if (age < 3600) {
-          return `${Math.floor(age / 60)}m`;
-        } else if (age < 86400) {
-          return `${Math.floor(age / 3600)}h`;
-        } else {
-          return `${Math.floor(age / 86400)}d`;
-        }
-      },
-      isExpired: function (ttlSeconds: number) {
-        return this.ageSeconds() > ttlSeconds;
-      },
-    };
   }
 
   /**
@@ -209,7 +220,6 @@ export class ResponseCache {
       return null;
     }
 
-    // Check expiration
     if (entry.isExpired(this.ttlSeconds)) {
       this.cache.delete(key);
       this.stats.misses++;
@@ -240,18 +250,14 @@ export class ResponseCache {
     // Evict oldest if at capacity
     if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
       const oldestKey = this.cache.keys().next().value as string;
-      this.cache.delete(oldestKey);
-      this.stats.evictions++;
+      if (oldestKey) {
+        this.cache.delete(oldestKey);
+        this.stats.evictions++;
+      }
     }
 
     // Store new entry
-    const entry = this.createInternalEntry({
-      question,
-      answer,
-      notebookUrl,
-      timestamp: Date.now(),
-      hitCount: 0,
-    });
+    const entry = new InternalCacheEntry(question, answer, notebookUrl);
 
     // Move to end (most recently used)
     this.cache.delete(key);
@@ -259,7 +265,7 @@ export class ResponseCache {
 
     // Persist periodically (every 5 writes)
     this.writesSinceLastSave++;
-    if (this.writesSinceLastSave % 5 === 0) {
+    if (this.writesSinceLastSave % AUTO_SAVE_THRESHOLD === 0) {
       await this.persistToFile();
     }
   }
@@ -274,16 +280,14 @@ export class ResponseCache {
     await this.initialize();
 
     if (!question && !notebookUrl) {
-      // Clear all
       const count = this.cache.size;
       this.cache.clear();
       await this.persistToFile();
       return count;
     }
 
-    // Selective invalidation
     const toRemove: string[] = [];
-    this.cache.forEach((entry, key) => {
+    for (const [key, entry] of Array.from(this.cache.entries())) {
       if (notebookUrl && entry.notebookUrl === notebookUrl) {
         toRemove.push(key);
       } else if (
@@ -293,11 +297,11 @@ export class ResponseCache {
       ) {
         toRemove.push(key);
       }
-    });
+    }
 
-    toRemove.forEach((key) => {
+    for (const key of toRemove) {
       this.cache.delete(key);
-    });
+    }
 
     if (toRemove.length > 0) {
       await this.persistToFile();
@@ -313,15 +317,15 @@ export class ResponseCache {
     await this.initialize();
 
     const expiredKeys: string[] = [];
-    this.cache.forEach((entry, key) => {
+    for (const [key, entry] of Array.from(this.cache.entries())) {
       if (entry.isExpired(this.ttlSeconds)) {
         expiredKeys.push(key);
       }
-    });
+    }
 
-    expiredKeys.forEach((key) => {
+    for (const key of expiredKeys) {
       this.cache.delete(key);
-    });
+    }
 
     if (expiredKeys.length > 0) {
       await this.persistToFile();
@@ -356,15 +360,11 @@ export class ResponseCache {
   async getEntries(limit?: number): Promise<CacheEntry[]> {
     await this.initialize();
 
-    const entries = Array.from(this.cache.values());
-    // Sort by most recent first
-    entries.sort((a, b) => b.timestamp - a.timestamp);
+    const entries = Array.from(this.cache.values())
+      .map((e) => e.toCacheEntry())
+      .sort((a, b) => b.timestamp - a.timestamp);
 
-    if (limit) {
-      return entries.slice(0, limit);
-    }
-
-    return entries;
+    return limit ? entries.slice(0, limit) : entries;
   }
 
   /**
