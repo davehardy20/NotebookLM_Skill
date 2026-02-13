@@ -42,6 +42,13 @@ const ConfigSchema = z.object({
     .string()
     .optional()
     .describe('Encryption key for browser state (32+ chars)'),
+
+  maxParallelQueries: z
+    .number()
+    .int()
+    .positive()
+    .default(10)
+    .describe('Maximum number of parallel notebook queries allowed'),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -108,6 +115,8 @@ function loadConfig(): Config {
     logLevel: (process.env.LOG_LEVEL || 'info') as 'debug' | 'info' | 'warn' | 'error',
 
     stateEncryptionKey: process.env.STATE_ENCRYPTION_KEY,
+
+    maxParallelQueries: parseInt(process.env.MAX_PARALLEL_QUERIES || '10', 10),
   };
 
   // Validate configuration

@@ -5,6 +5,8 @@
 
 import { askNotebookLM } from './ask.js';
 import { getNotebookLibrary } from './notebook/notebook-manager.js';
+import { config } from './core/config.js';
+import { ValidationError } from './core/errors.js';
 import ora from 'ora';
 import chalk from 'chalk';
 
@@ -33,12 +35,19 @@ export async function queryMultipleNotebooks(
   const library = getNotebookLibrary();
   await library.initialize();
 
+  if (notebookIds.length > config.maxParallelQueries) {
+    throw new ValidationError(
+      `Cannot query more than ${config.maxParallelQueries} notebooks at once. ` +
+        `Requested: ${notebookIds.length}`
+    );
+  }
+
   const results: ParallelQueryResult[] = [];
-  
+
   console.log(chalk.blue(`\n🔄 Querying ${notebookIds.length} notebooks in parallel...\n`));
 
   // Create promises for all queries
-  const queryPromises = notebookIds.map(async (notebookId) => {
+  const queryPromises = notebookIds.map(async notebookId => {
     const notebook = library.getNotebook(notebookId);
     if (!notebook) {
       return {
@@ -91,7 +100,7 @@ export async function queryMultipleNotebooks(
       const duration = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
       spinner.fail(`${notebook.name} - ${errorMessage}`);
-      
+
       return {
         notebookId,
         notebookName: notebook.name,
@@ -107,7 +116,7 @@ export async function queryMultipleNotebooks(
   const settledResults = await Promise.allSettled(queryPromises);
 
   // Process results
-  settledResults.forEach((result) => {
+  settledResults.forEach(result => {
     if (result.status === 'fulfilled') {
       results.push(result.value);
     } else {
@@ -123,8 +132,8 @@ export async function queryMultipleNotebooks(
   });
 
   // Display summary
-  const successful = results.filter((r) => r.success).length;
-  const failed = results.filter((r) => !r.success).length;
+  const successful = results.filter(r => r.success).length;
+  const failed = results.filter(r => !r.success).length;
   const avgDuration = results.reduce((sum, r) => sum + r.duration, 0) / results.length;
 
   console.log(chalk.green(`\n✓ Completed: ${successful} successful, ${failed} failed`));
@@ -138,9 +147,9 @@ export async function queryMultipleNotebooks(
  */
 export function formatParallelResults(results: ParallelQueryResult[]): string {
   const lines: string[] = [];
-  
+
   lines.push(chalk.bold('\n📊 Results:\n'));
-  
+
   for (const result of results) {
     if (result.success && result.answer) {
       lines.push(chalk.green(`## ${result.notebookName}`));
