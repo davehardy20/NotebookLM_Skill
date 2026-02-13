@@ -102,8 +102,29 @@ export class BrowserFactory {
       const state = parseStateData(stateContent) as BrowserState;
 
       if (state.cookies && state.cookies.length > 0) {
-        await context.addCookies(state.cookies);
-        logger.debug('Injected cookies from state.json', { count: state.cookies.length });
+        const now = Date.now() / 1000;
+        const validCookies = state.cookies.filter(cookie => {
+          if (!cookie.expires || cookie.expires === -1) {
+            return true;
+          }
+          return cookie.expires > now;
+        });
+
+        const expiredCount = state.cookies.length - validCookies.length;
+        if (expiredCount > 0) {
+          logger.debug(`Filtered out ${expiredCount} expired cookies`);
+        }
+
+        if (validCookies.length === 0) {
+          logger.warn('No valid cookies found (all expired), skipping injection');
+          return;
+        }
+
+        await context.addCookies(validCookies);
+        logger.debug('Injected cookies from state.json', {
+          count: validCookies.length,
+          total: state.cookies.length,
+        });
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
