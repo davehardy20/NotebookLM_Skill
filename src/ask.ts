@@ -2,7 +2,7 @@
  * NotebookLM Query Interface
  * Main entry point for asking questions to NotebookLM
  * Ports ask_question.py to TypeScript with full feature parity
- * 
+ *
  * Features:
  * - Dual-mode execution (browser pool optimized + legacy fallback)
  * - Response caching for faster repeated queries
@@ -26,6 +26,7 @@ import { getCache } from './cache/index.js';
 import { getNotebookLibrary } from './notebook/index.js';
 import { getMonitor } from './performance/index.js';
 import { createChildLogger } from './core/logger.js';
+import { validateNotebookUrl } from './core/validation.js';
 
 const logger = createChildLogger('AskQuestion');
 
@@ -36,7 +37,7 @@ const logger = createChildLogger('AskQuestion');
 export const FOLLOW_UP_REMINDER =
   '\n\nEXTREMELY IMPORTANT: Is that ALL you need to know? ' +
   'You can always ask another question! Think about it carefully: ' +
-  "before you reply to the user, review their original request and this answer. " +
+  'before you reply to the user, review their original request and this answer. ' +
   'If anything is still unclear or missing, ask me another comprehensive question.';
 
 /**
@@ -84,7 +85,7 @@ export interface QueryResult {
 /**
  * Ask a question to NotebookLM using optimized browser pool
  * Fast path - reuses existing browser sessions
- * 
+ *
  * @param question - The question to ask
  * @param notebookUrl - URL of the NotebookLM notebook
  * @param config - Query configuration options
@@ -99,7 +100,7 @@ export async function askNotebookLMOptimized(
   const authManager = AuthManager.getInstance();
   const cache = getCache();
   const startTime = Date.now();
-  
+
   logger.info(`💬 Asking (optimized): ${question}`);
 
   // Check authentication
@@ -114,7 +115,7 @@ export async function askNotebookLMOptimized(
     const cachedAnswer = await cache.get(question, notebookUrl);
     if (cachedAnswer) {
       logger.info('💾 Cache hit! Serving cached response');
-      
+
       const monitor = await getMonitor();
       await monitor.recordQuery(0, question, cachedAnswer, {
         fromCache: true,
@@ -157,7 +158,7 @@ export async function askNotebookLMOptimized(
     // Wait for query input
     logger.debug('Waiting for query input...');
     let inputSelector: string | null = null;
-    
+
     for (const selector of QUERY_INPUT_SELECTORS) {
       try {
         const element = await page.waitForSelector(selector, {
@@ -217,29 +218,28 @@ export async function askNotebookLMOptimized(
       usePool: true,
       success: true,
     };
-
   } catch (error) {
     const duration = (Date.now() - startTime) / 1000;
-    
+
     // Handle specific error types
     if (error instanceof AuthExpiredError || error instanceof BrowserCrashedError) {
       logger.warn(`Session error: ${error.message}`);
-      
+
       // Record fallback
       const monitor = await getMonitor();
       monitor.recordFallback();
-      
+
       // Close all sessions and retry with legacy
       await sessionPool.closeAll();
       logger.info('Falling back to fresh session (legacy mode)...');
-      
+
       return askNotebookLMLegacy(question, notebookUrl, config);
     }
 
     // Other errors - log and return null
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     logger.error(`Error in optimized query: ${errorMessage}`);
-    
+
     const monitor = await getMonitor();
     await monitor.recordQuery(duration, question, '', {
       fromCache: false,
@@ -256,7 +256,7 @@ export async function askNotebookLMOptimized(
 /**
  * Ask a question using legacy mode (fresh browser each time)
  * Fallback when browser pool fails
- * 
+ *
  * @param question - The question to ask
  * @param notebookUrl - URL of the NotebookLM notebook
  * @param config - Query configuration options
@@ -271,7 +271,7 @@ export async function askNotebookLMLegacy(
   const authManager = AuthManager.getInstance();
   const cache = getCache();
   const startTime = Date.now();
-  
+
   logger.info(`💬 Asking (legacy): ${question}`);
 
   // Check authentication
@@ -286,7 +286,7 @@ export async function askNotebookLMLegacy(
     const cachedAnswer = await cache.get(question, notebookUrl);
     if (cachedAnswer) {
       logger.info('💾 Cache hit! Serving cached response');
-      
+
       const monitor = await getMonitor();
       await monitor.recordQuery(0, question, cachedAnswer, {
         fromCache: true,
@@ -310,12 +310,12 @@ export async function askNotebookLMLegacy(
   StealthUtils.FAST_MODE = fullConfig.fastMode;
 
   let context = null;
-  
+
   try {
     // Launch fresh browser context
     const { Paths } = await import('./core/paths.js');
     const pathsInstance = Paths.getInstance();
-    
+
     context = await BrowserFactory.launchPersistentContext(
       chromium,
       pathsInstance.browserProfileDir,
@@ -323,11 +323,11 @@ export async function askNotebookLMLegacy(
     );
 
     const page = await context.newPage();
-    
+
     // Navigate to notebook
     logger.debug('Opening notebook...');
     await page.goto(notebookUrl, { waitUntil: 'domcontentloaded' });
-    
+
     // Wait for NotebookLM domain
     await page.waitForURL(/^https:\/\/notebooklm\.google\.com\//, {
       timeout: 10000,
@@ -336,7 +336,7 @@ export async function askNotebookLMLegacy(
     // Wait for query input
     logger.debug('Waiting for query input...');
     let inputSelector: string | null = null;
-    
+
     for (const selector of QUERY_INPUT_SELECTORS) {
       try {
         const element = await page.waitForSelector(selector, {
@@ -399,13 +399,12 @@ export async function askNotebookLMLegacy(
       usePool: false,
       success: true,
     };
-
   } catch (error) {
     const duration = (Date.now() - startTime) / 1000;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+
     logger.error(`Error in legacy query: ${errorMessage}`);
-    
+
     const monitor = await getMonitor();
     await monitor.recordQuery(duration, question, '', {
       fromCache: false,
@@ -416,7 +415,6 @@ export async function askNotebookLMLegacy(
     });
 
     return null;
-
   } finally {
     // Always close context
     if (context) {
@@ -434,7 +432,7 @@ export async function askNotebookLMLegacy(
 /**
  * Unified entry point for asking questions
  * Uses browser pool by default with automatic fallback to legacy mode
- * 
+ *
  * @param question - The question to ask
  * @param notebookUrl - URL of the NotebookLM notebook
  * @param config - Query configuration options
@@ -457,7 +455,7 @@ export async function askNotebookLM(
 /**
  * Resolve notebook URL from various sources
  * Supports: direct URL, notebook ID, active notebook
- * 
+ *
  * @param options - Resolution options
  * @returns Resolved notebook URL or null if not found
  */
@@ -468,9 +466,8 @@ export async function resolveNotebookUrl(options: {
 }): Promise<string | null> {
   const { notebookUrl, notebookId, useActive = true } = options;
 
-  // Direct URL provided
   if (notebookUrl) {
-    return notebookUrl;
+    return validateNotebookUrl(notebookUrl);
   }
 
   const library = getNotebookLibrary();
@@ -500,7 +497,7 @@ export async function resolveNotebookUrl(options: {
 
 /**
  * Get list of available notebooks for display
- * 
+ *
  * @returns Array of notebook info objects
  */
 export async function getAvailableNotebooks(): Promise<
@@ -512,7 +509,7 @@ export async function getAvailableNotebooks(): Promise<
 > {
   const library = getNotebookLibrary();
   await library.initialize();
-  
+
   const notebooks = library.listNotebooks();
   const activeId = library.getActiveNotebook()?.id;
 
@@ -525,17 +522,12 @@ export async function getAvailableNotebooks(): Promise<
 
 /**
  * Simple convenience function - just get the answer text
- * 
+ *
  * @param question - The question to ask
  * @param notebookUrl - URL of the NotebookLM notebook
  * @returns Answer text or null on failure
  */
-export async function query(
-  question: string,
-  notebookUrl: string
-): Promise<string | null> {
+export async function query(question: string, notebookUrl: string): Promise<string | null> {
   const result = await askNotebookLM(question, notebookUrl);
   return result?.answer || null;
 }
-
-

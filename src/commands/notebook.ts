@@ -7,6 +7,7 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import ora from 'ora';
 import { getNotebookLibrary } from '../notebook/notebook-manager.js';
+import { validateNotebookUrl } from '../core/validation.js';
 
 interface AddCommandOptions {
   name?: string;
@@ -23,9 +24,7 @@ interface AddCommandOptions {
  * @param program - The Commander program instance
  */
 export function addNotebookCommand(program: Command): void {
-  const notebookCmd = program
-    .command('notebook')
-    .description('Manage NotebookLM notebook library');
+  const notebookCmd = program.command('notebook').description('Manage NotebookLM notebook library');
 
   notebookCmd
     .command('add <url>')
@@ -106,6 +105,8 @@ async function handleAddCommand(url: string, options: AddCommandOptions): Promis
     process.exit(1);
   }
 
+  validateNotebookUrl(url);
+
   const spinner = ora('Adding notebook...').start();
 
   try {
@@ -113,7 +114,9 @@ async function handleAddCommand(url: string, options: AddCommandOptions): Promis
     await library.initialize();
 
     const topics = options.topics ? options.topics.split(',').map(t => t.trim()) : [];
-    const contentTypes = options.contentTypes ? options.contentTypes.split(',').map(t => t.trim()) : [];
+    const contentTypes = options.contentTypes
+      ? options.contentTypes.split(',').map(t => t.trim())
+      : [];
     const useCases = options.useCases ? options.useCases.split(',').map(t => t.trim()) : [];
     const tags = options.tags ? options.tags.split(',').map(t => t.trim()) : [];
 
@@ -165,18 +168,19 @@ async function handleListCommand(): Promise<void> {
     const maxNameWidth = Math.max(...notebooks.map(n => n.name.length), 10);
 
     console.log(
-      chalk.cyan(
-        `  ${padRight('ID', maxIdWidth)}  ${padRight('Name', maxNameWidth)}  Topics  Uses`
-      )
+      chalk.cyan(`  ${padRight('ID', maxIdWidth)}  ${padRight('Name', maxNameWidth)}  Topics  Uses`)
     );
-    console.log(chalk.gray(`  ${'─'.repeat(maxIdWidth)}  ${'─'.repeat(maxNameWidth)}  ──────  ─────`));
+    console.log(
+      chalk.gray(`  ${'─'.repeat(maxIdWidth)}  ${'─'.repeat(maxNameWidth)}  ──────  ─────`)
+    );
 
     for (const notebook of notebooks) {
       const isActive = activeNotebook?.id === notebook.id;
       const prefix = isActive ? chalk.green('▸ ') : '  ';
       const id = isActive ? chalk.cyan(notebook.id) : chalk.gray(notebook.id);
       const name = isActive ? chalk.white(notebook.name) : chalk.gray(notebook.name);
-      const topics = notebook.topics.slice(0, 2).join(', ') + (notebook.topics.length > 2 ? '...' : '');
+      const topics =
+        notebook.topics.slice(0, 2).join(', ') + (notebook.topics.length > 2 ? '...' : '');
       const uses = notebook.useCount.toString();
 
       console.log(
@@ -188,7 +192,9 @@ async function handleListCommand(): Promise<void> {
       console.log(`\n  ${chalk.green('▸')} = Active notebook: ${chalk.cyan(activeNotebook.name)}`);
     }
 
-    console.log(`\n  Total: ${chalk.bold(notebooks.length.toString())} notebook${notebooks.length === 1 ? '' : 's'}\n`);
+    console.log(
+      `\n  Total: ${chalk.bold(notebooks.length.toString())} notebook${notebooks.length === 1 ? '' : 's'}\n`
+    );
   } catch (error) {
     spinner.fail('Failed to load notebook library');
     throw error;
@@ -228,7 +234,11 @@ async function handleSearchCommand(query: string): Promise<void> {
       console.log(chalk.gray(`    URL: ${notebook.url}\n`));
     }
 
-    console.log(chalk.gray(`  Found ${chalk.bold(results.length.toString())} result${results.length === 1 ? '' : 's'}\n`));
+    console.log(
+      chalk.gray(
+        `  Found ${chalk.bold(results.length.toString())} result${results.length === 1 ? '' : 's'}\n`
+      )
+    );
   } catch (error) {
     spinner.fail('Search failed');
     throw error;
@@ -315,20 +325,16 @@ async function handleStatsCommand(): Promise<void> {
         `  ${padRight('Active Notebook:', labelWidth)} ${chalk.cyan(stats.activeNotebook.name)}`
       );
     } else {
-      console.log(
-        `  ${padRight('Active Notebook:', labelWidth)} ${chalk.gray('None')}`
-      );
+      console.log(`  ${padRight('Active Notebook:', labelWidth)} ${chalk.gray('None')}`);
     }
 
     if (stats.mostUsedNotebook) {
       console.log(
-        `  ${padRight('Most Used:', labelWidth)} ${chalk.cyan(stats.mostUsedNotebook.name)} ${chalk.gray(`(${stats.mostUsedNotebook.useCount} uses)`) }`
+        `  ${padRight('Most Used:', labelWidth)} ${chalk.cyan(stats.mostUsedNotebook.name)} ${chalk.gray(`(${stats.mostUsedNotebook.useCount} uses)`)}`
       );
     }
 
-    console.log(
-      `  ${padRight('Library File:', labelWidth)} ${chalk.gray(stats.libraryPath)}`
-    );
+    console.log(`  ${padRight('Library File:', labelWidth)} ${chalk.gray(stats.libraryPath)}`);
 
     console.log('');
   } catch (error) {

@@ -7,6 +7,7 @@ import { Command } from 'commander';
 import ora, { Ora } from 'ora';
 import { askNotebookLM, resolveNotebookUrl } from '../ask.js';
 import { queryMultipleNotebooks, formatParallelResults } from '../parallel-ask.js';
+import { validateNotebookUrl } from '../core/validation.js';
 
 /**
  * Options for the ask command
@@ -52,13 +53,14 @@ export function addAskCommand(program: Command): void {
  * @param question - The question to ask
  * @param options - Command options
  */
-async function handleAskCommand(
-  question: string,
-  options: AskCommandOptions
-): Promise<void> {
+async function handleAskCommand(question: string, options: AskCommandOptions): Promise<void> {
   const spinner = ora('Resolving notebook...').start();
 
   try {
+    if (options.notebookUrl) {
+      validateNotebookUrl(options.notebookUrl);
+    }
+
     // Resolve notebook URL from options
     const notebookUrl = await resolveNotebookUrl({
       notebookUrl: options.notebookUrl,
@@ -67,7 +69,9 @@ async function handleAskCommand(
     });
 
     if (!notebookUrl) {
-      spinner.fail('No notebook selected. Use --notebook-id, --notebook-url, or select a notebook first.');
+      spinner.fail(
+        'No notebook selected. Use --notebook-id, --notebook-url, or select a notebook first.'
+      );
       return;
     }
 
@@ -121,7 +125,9 @@ function handleError(error: unknown): void {
     } else if (errorName === 'BrowserCrashedError') {
       console.error('💡 Hint: Browser crashed. Try again or use --no-pool flag');
     } else if (errorName === 'NotFoundError') {
-      console.error('💡 Hint: Notebook not found. Check --notebook-id or select an active notebook');
+      console.error(
+        '💡 Hint: Notebook not found. Check --notebook-id or select an active notebook'
+      );
     }
   } else {
     console.error('\n❌ Unknown error occurred');
