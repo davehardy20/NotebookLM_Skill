@@ -6,6 +6,8 @@ import { addNotebookCommand } from './commands/notebook.js';
 import { addCacheCommand } from './commands/cache.js';
 import { addPerfCommand } from './commands/perf.js';
 import { addHistoryCommand } from './commands/history.js';
+import { Paths } from './core/paths.js';
+import { logger } from './core/logger.js';
 
 const program = new Command();
 
@@ -16,7 +18,17 @@ program
 
 program
   .option('-v, --verbose', 'enable verbose logging')
-  .option('-c, --config <path>', 'path to configuration file');
+  .option('-c, --config <path>', 'path to configuration file')
+  .hook('preAction', async () => {
+    const paths = Paths.getInstance();
+    try {
+      await paths.ensureSecurePermissions();
+    } catch (error) {
+      logger.warn('Could not verify permissions', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  });
 
 addAuthCommand(program);
 addNotebookCommand(program);

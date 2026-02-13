@@ -70,6 +70,12 @@ export class AuthManager {
         error: error instanceof Error ? error.message : String(error),
       });
     });
+
+    this.paths.ensureSecurePermissions().catch(error => {
+      logger.warn('Permission check failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
   }
 
   /**
@@ -256,6 +262,8 @@ export class AuthManager {
           stateFile: this.stateFile,
         });
       }
+
+      await this.paths.setSecureFilePermissions(this.stateFile);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Failed to save browser state', { error: message });
@@ -309,6 +317,7 @@ export class AuthManager {
         authenticatedAtIso: new Date().toISOString(),
       };
       await writeFile(this.authInfoFile, JSON.stringify(info, null, 2));
+      await this.paths.setSecureFilePermissions(this.authInfoFile);
       logger.debug('Saved auth info', { authInfoFile: this.authInfoFile });
     } catch (error) {
       // Non-critical, just log the error

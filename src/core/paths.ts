@@ -3,8 +3,9 @@
  * Provides consistent paths across Linux, macOS, and Windows
  */
 
-import { homedir } from 'os';
+import { homedir, platform } from 'os';
 import { join } from 'path';
+import { chmod, mkdir, stat } from 'fs/promises';
 
 /**
  * Paths manager following XDG Base Directory spec
@@ -66,5 +67,102 @@ export class Paths {
 
   get logsDir(): string {
     return join(this.dataDir, 'logs');
+  }
+
+
+  isUnix(): boolean {
+    return platform() !== 'win32';
+  }
+
+  async ensureDataDir(): Promise<void> {
+    if (!this.isUnix()) {
+      return;
+    }
+
+    try {
+      await mkdir(this.dataDir, { recursive: true, mode: 0o700 });
+      await chmod(this.dataDir, 0o700);
+    } catch (error) {
+      console.warn(`Could not set permissions on ${this.dataDir}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async setSecureFilePermissions(filePath: string): Promise<void> {
+    if (!this.isUnix()) {
+      return;
+    }
+
+    try {
+      await chmod(filePath, 0o600);
+    } catch (error) {
+      console.warn(`Could not set permissions on ${filePath}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  async ensureSecurePermissions(): Promise<void> {
+    if (!this.isUnix()) {
+      return;
+    }
+
+    const issues: string[] = [];
+
+    try {
+      await this.ensureDataDir();
+
+      const dataStats = await stat(this.dataDir);
+      const dataMode = dataStats.mode & 0o777;
+
+      if (dataMode & 0o007) {
+        issues.push(`data directory: ${dataMode.toString(8)} (expected 700)`);
+        await chmod(this.dataDir, 0o700);
+        console.warn(`[Security] Fixed data directory permissions: ${this.dataDir}`);
+      }
+
+      const browserStateStats = await stat(this.browserStateDir).catch(() => null);
+      if (browserStateStats) {
+        const browserStateMode = browserStateStats.mode & 0o777;
+        if (browserStateMode & 0o007) {
+          issues.push(`browser_state directory: ${browserStateMode.toString(8)} (expected 700)`);
+          await chmod(this.browserStateDir, 0o700);
+          console.warn(`[Security] Fixed browser_state directory permissions: ${this.browserStateDir}`);
+        }
+      }
+
+      const cacheStats = await stat(this.cacheDir).catch(() => null);
+      if (cacheStats) {
+        const cacheMode = cacheStats.mode & 0o777;
+        if (cacheMode & 0o007) {
+          issues.push(`cache directory: ${cacheMode.toString(8)} (expected 700)`);
+          await chmod(this.cacheDir, 0o700);
+          console.warn(`[Security] Fixed cache directory permissions: ${this.cacheDir}`);
+        }
+      }
+
+      const sensitiveFiles = [
+        this.stateFile,
+        this.authInfoFile,
+        this.cacheFile,
+      ];
+
+      for (const file of sensitiveFiles) {
+        try {
+          const fileStats = await stat(file);
+          const fileMode = fileStats.mode & 0o777;
+
+          if (fileMode & 0o077) {
+            issues.push(`${file}: ${fileMode.toString(8)} (expected 600)`);
+            await chmod(file, 0o600);
+            console.warn(`[Security] Fixed file permissions: ${file}`);
+          }
+        } catch {
+        }
+      }
+
+      if (issues.length > 0) {
+        console.warn(`[Security] Found and fixed ${issues.length} insecure permission(s):`, issues.join(', '));
+      }
+    } catch (error) {
+      console.error(`[Security] Error checking permissions: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 }

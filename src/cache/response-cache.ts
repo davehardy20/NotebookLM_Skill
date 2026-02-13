@@ -10,7 +10,7 @@
  */
 
 import { createHash } from 'crypto';
-import { readFile, writeFile, mkdir } from 'fs/promises';
+import { readFile, writeFile, mkdir, chmod } from 'fs/promises';
 import { dirname } from 'path';
 import { z } from 'zod';
 import { Paths } from '../core/paths.js';
@@ -186,7 +186,8 @@ export class ResponseCache {
    */
   private async persistToFile(): Promise<void> {
     try {
-      await mkdir(dirname(this.cacheFile), { recursive: true });
+      const cacheDir = dirname(this.cacheFile);
+      await mkdir(cacheDir, { recursive: true });
 
       const entries: Record<string, CacheEntry> = {};
       for (const [key, entry] of Array.from(this.cache.entries())) {
@@ -200,6 +201,16 @@ export class ResponseCache {
       };
 
       await writeFile(this.cacheFile, JSON.stringify(state, null, 2), 'utf-8');
+
+      const paths = Paths.getInstance();
+      if (paths.isUnix()) {
+        try {
+          await chmod(cacheDir, 0o700);
+          await chmod(this.cacheFile, 0o600);
+        } catch {
+          logger.warn('Could not set permissions on cache');
+        }
+      }
     } catch (error) {
       logger.warn(`Could not save cache: ${error}`);
     }
