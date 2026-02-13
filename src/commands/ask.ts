@@ -8,6 +8,8 @@ import ora, { Ora } from 'ora';
 import { askNotebookLM, resolveNotebookUrl } from '../ask.js';
 import { queryMultipleNotebooks, formatParallelResults } from '../parallel-ask.js';
 import { validateNotebookUrl } from '../core/validation.js';
+import { AuthError, NotFoundError } from '../core/errors.js';
+import { AuthExpiredError, BrowserCrashedError } from '../browser/index.js';
 
 /**
  * Options for the ask command
@@ -118,13 +120,12 @@ function handleError(error: unknown): void {
   if (error instanceof Error) {
     console.error(`\n❌ Error: ${error.message}`);
 
-    // Check for specific error types
-    const errorName = error.constructor.name;
-    if (errorName === 'AuthExpiredError' || errorName === 'AuthError') {
+    // Check for specific error types using instanceof
+    if (error instanceof AuthExpiredError || error instanceof AuthError) {
       console.error('💡 Hint: Run "notebooklm auth refresh" to refresh authentication');
-    } else if (errorName === 'BrowserCrashedError') {
+    } else if (error instanceof BrowserCrashedError) {
       console.error('💡 Hint: Browser crashed. Try again or use --no-pool flag');
-    } else if (errorName === 'NotFoundError') {
+    } else if (error instanceof NotFoundError) {
       console.error(
         '💡 Hint: Notebook not found. Check --notebook-id or select an active notebook'
       );
