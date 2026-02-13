@@ -99,6 +99,7 @@ export class ResponseCache {
   private readonly maxSize: number;
   private readonly ttlSeconds: number;
   private readonly cacheFile: string;
+  private readonly sensitiveKeywords: readonly string[];
 
   // Map maintains insertion order in ES6+, perfect for LRU
   private cache: Map<string, InternalCacheEntry> = new Map();
@@ -120,6 +121,19 @@ export class ResponseCache {
   ) {
     this.maxSize = maxSize ?? DEFAULT_MAX_SIZE;
     this.ttlSeconds = ttlSeconds ?? DEFAULT_TTL_SECONDS;
+
+    this.sensitiveKeywords = [
+      'password',
+      'ssn',
+      'credit card',
+      'secret',
+      'api key',
+      'token',
+      'credential',
+      'private key',
+      'apikey',
+      'auth',
+    ];
 
     if (cacheFile) {
       this.cacheFile = cacheFile;
@@ -145,6 +159,14 @@ export class ResponseCache {
     const normalized = question.toLowerCase().trim();
     const keyData = `${normalized}:${notebookUrl}`;
     return createHash('md5').update(keyData).digest('hex');
+  }
+
+  /**
+   * Check if content contains sensitive keywords (PII, credentials, etc.)
+   */
+  private isSensitiveContent(question: string, answer: string): boolean {
+    const content = `${question} ${answer}`.toLowerCase();
+    return this.sensitiveKeywords.some(keyword => content.includes(keyword));
   }
 
   /**
@@ -255,6 +277,13 @@ export class ResponseCache {
     notebookUrl: string
   ): Promise<void> {
     await this.initialize();
+
+    // Skip caching sensitive content (PII, credentials, etc.)
+    if (this.isSensitiveContent(question, answer)) {
+      const truncatedQuestion = question.length > 50 ? `${question.substring(0, 50)}...` : question;
+      logger.warn(`Skipping cache of sensitive content: ${truncatedQuestion}`);
+      return;
+    }
 
     const key = this.generateKey(question, notebookUrl);
 
