@@ -10,6 +10,7 @@ import { join, dirname } from 'path';
 import type { BrowserContext, Page, Route, Request, BrowserType } from 'playwright';
 import { BrowserError, TimeoutError } from '../core/errors.js';
 import { createChildLogger } from '../core/logger.js';
+import { parseStateData } from '../core/crypto.js';
 import {
   BLOCKED_PATTERNS,
   ALWAYS_BLOCKED_RESOURCE_TYPES,
@@ -89,7 +90,6 @@ export class BrowserFactory {
    * Workaround for Playwright bug #36139
    */
   private static async injectCookies(context: BrowserContext, userDataDir: string): Promise<void> {
-    // State file is sibling to browser profile directory
     const stateFile = join(dirname(userDataDir), 'state.json');
 
     if (!existsSync(stateFile)) {
@@ -99,16 +99,22 @@ export class BrowserFactory {
 
     try {
       const stateContent = await readFile(stateFile, 'utf-8');
-      const state: BrowserState = JSON.parse(stateContent);
+      const state = parseStateData(stateContent) as BrowserState;
 
       if (state.cookies && state.cookies.length > 0) {
         await context.addCookies(state.cookies);
         logger.debug('Injected cookies from state.json', { count: state.cookies.length });
       }
     } catch (error) {
-      logger.warn('Could not load state.json for cookie injection', {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn('Could not load state.json for cookie injection', { error: message });
+
+      if (message.includes('STATE_ENCRYPTION_KEY')) {
+        logger.error(
+          'Encrypted state file found but STATE_ENCRYPTION_KEY is not set. ' +
+            'Please set the encryption key to decrypt browser state.'
+        );
+      }
     }
   }
 

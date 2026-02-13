@@ -37,6 +37,11 @@ const ConfigSchema = z.object({
   // Environment
   nodeEnv: z.enum(['development', 'production', 'test']).describe('Node environment'),
   logLevel: z.enum(['debug', 'info', 'warn', 'error']).describe('Log level'),
+
+  stateEncryptionKey: z
+    .string()
+    .optional()
+    .describe('Encryption key for browser state (32+ chars)'),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -57,41 +62,35 @@ function loadConfig(): Config {
     libraryFile: process.env.NOTEBOOKLM_LIBRARY_FILE || paths.libraryFile,
 
     // NotebookLM Selectors
-    queryInputSelectors: (process.env.NOTEBOOKLM_QUERY_SELECTORS || '')
-      .split(',')
-      .filter(Boolean)
-      .length > 0
-      ? (process.env.NOTEBOOKLM_QUERY_SELECTORS || '').split(',').filter(Boolean)
-      : [
-          'textarea.query-box-input',
-          'textarea[aria-label="Feld für Anfragen"]',
-          'textarea[aria-label="Input for queries"]',
-        ],
+    queryInputSelectors:
+      (process.env.NOTEBOOKLM_QUERY_SELECTORS || '').split(',').filter(Boolean).length > 0
+        ? (process.env.NOTEBOOKLM_QUERY_SELECTORS || '').split(',').filter(Boolean)
+        : [
+            'textarea.query-box-input',
+            'textarea[aria-label="Feld für Anfragen"]',
+            'textarea[aria-label="Input for queries"]',
+          ],
 
-    responseSelectors: (process.env.NOTEBOOKLM_RESPONSE_SELECTORS || '')
-      .split(',')
-      .filter(Boolean)
-      .length > 0
-      ? (process.env.NOTEBOOKLM_RESPONSE_SELECTORS || '').split(',').filter(Boolean)
-      : [
-          '.to-user-container .message-text-content',
-          "[data-message-author='bot']",
-          "[data-message-author='assistant']",
-        ],
+    responseSelectors:
+      (process.env.NOTEBOOKLM_RESPONSE_SELECTORS || '').split(',').filter(Boolean).length > 0
+        ? (process.env.NOTEBOOKLM_RESPONSE_SELECTORS || '').split(',').filter(Boolean)
+        : [
+            '.to-user-container .message-text-content',
+            "[data-message-author='bot']",
+            "[data-message-author='assistant']",
+          ],
 
     // Browser Configuration
-    browserArgs: (process.env.NOTEBOOKLM_BROWSER_ARGS || '')
-      .split(',')
-      .filter(Boolean)
-      .length > 0
-      ? (process.env.NOTEBOOKLM_BROWSER_ARGS || '').split(',').filter(Boolean)
-      : [
-          '--disable-blink-features=AutomationControlled',
-          '--disable-dev-shm-usage',
-          '--no-sandbox',
-          '--no-first-run',
-          '--no-default-browser-check',
-        ],
+    browserArgs:
+      (process.env.NOTEBOOKLM_BROWSER_ARGS || '').split(',').filter(Boolean).length > 0
+        ? (process.env.NOTEBOOKLM_BROWSER_ARGS || '').split(',').filter(Boolean)
+        : [
+            '--disable-blink-features=AutomationControlled',
+            '--disable-dev-shm-usage',
+            '--no-sandbox',
+            '--no-first-run',
+            '--no-default-browser-check',
+          ],
 
     userAgent:
       process.env.NOTEBOOKLM_USER_AGENT ||
@@ -107,13 +106,15 @@ function loadConfig(): Config {
     // Environment
     nodeEnv: (process.env.NODE_ENV || 'development') as 'development' | 'production' | 'test',
     logLevel: (process.env.LOG_LEVEL || 'info') as 'debug' | 'info' | 'warn' | 'error',
+
+    stateEncryptionKey: process.env.STATE_ENCRYPTION_KEY,
   };
 
   // Validate configuration
   const result = ConfigSchema.safeParse(config);
 
   if (!result.success) {
-    const errors = result.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join('\n');
+    const errors = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('\n');
     throw new Error(`Configuration validation failed:\n${errors}`);
   }
 

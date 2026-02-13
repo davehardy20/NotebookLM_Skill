@@ -12,13 +12,14 @@
  */
 
 import { existsSync } from 'fs';
-import { readFile, writeFile, stat, unlink, rm } from 'fs/promises';
+import { readFile, writeFile, stat, unlink, rm, rename } from 'fs/promises';
 import { chromium, type BrowserContext } from 'playwright';
 import { AuthInfoSchema, type AuthInfo } from '../types/auth.js';
 import { AuthError, BrowserError } from '../core/errors.js';
 import { createChildLogger } from '../core/logger.js';
 import { Paths } from '../core/paths.js';
 import { BrowserFactory } from './browser-utils.js';
+import { encryptState, isEncrypted, getEncryptionKeyFromEnv } from '../core/crypto.js';
 
 const logger = createChildLogger('AuthManager');
 
@@ -63,6 +64,12 @@ export class AuthManager {
       authInfoFile: this.authInfoFile,
       browserStateDir: this.browserStateDir,
     });
+
+    this._migrateUnencryptedState().catch(error => {
+      logger.warn('Migration check failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
   }
 
   /**
@@ -82,19 +89,13 @@ export class AuthManager {
     AuthManager.instance = null;
   }
 
-  /**
-   * Check if valid authentication exists
-   * Validates state file existence and age (warns if > 7 days)
-   */
   async isAuthenticated(): Promise<boolean> {
-    // Check if state file exists
     if (!existsSync(this.stateFile)) {
       logger.debug('State file does not exist', { stateFile: this.stateFile });
       return false;
     }
 
     try {
-      // Check if state file is not too old (7 days)
       const stats = await stat(this.stateFile);
       const ageDays = (Date.now() - stats.mtime.getTime()) / (1000 * 60 * 60 * 24);
 
@@ -163,10 +164,7 @@ export class AuthManager {
    * @param timeoutMinutes - Maximum time to wait for login
    * @returns True if authentication successful
    */
-  async setupAuth(
-    headless: boolean = false,
-    timeoutMinutes: number = 10
-  ): Promise<boolean> {
+  async setupAuth(headless: boolean = false, timeoutMinutes: number = 10): Promise<boolean> {
     logger.info('Starting authentication setup...', {
       headless,
       timeoutMinutes,
@@ -223,7 +221,7 @@ export class AuthManager {
         }
       } finally {
         // Clean up browser context
-        await context.close().catch((error) => {
+        await context.close().catch(error => {
           logger.warn('Error closing browser context', {
             error: error instanceof Error ? error.message : String(error),
           });
@@ -239,17 +237,64 @@ export class AuthManager {
   /**
    * Save browser state to disk
    * Persists storage state (cookies, localStorage) for session restoration
+   * Encrypts the state if STATE_ENCRYPTION_KEY is set
    */
   private async _saveBrowserState(context: BrowserContext): Promise<void> {
     try {
       // Save storage state (cookies, localStorage)
       const state = await context.storageState();
-      await writeFile(this.stateFile, JSON.stringify(state, null, 2));
-      logger.info('Saved browser state', { stateFile: this.stateFile });
+
+      // Encrypt if key is available
+      const encryptionKey = getEncryptionKeyFromEnv();
+      if (encryptionKey) {
+        const encrypted = encryptState(state, encryptionKey);
+        await writeFile(this.stateFile, encrypted);
+        logger.info('Saved encrypted browser state', { stateFile: this.stateFile });
+      } else {
+        await writeFile(this.stateFile, JSON.stringify(state, null, 2));
+        logger.info('Saved unencrypted browser state (no encryption key set)', {
+          stateFile: this.stateFile,
+        });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       logger.error('Failed to save browser state', { error: message });
       throw new AuthError(`Failed to save browser state: ${message}`);
+    }
+  }
+
+  private async _migrateUnencryptedState(): Promise<boolean> {
+    const encryptionKey = getEncryptionKeyFromEnv();
+    if (!encryptionKey) {
+      return false;
+    }
+
+    if (!existsSync(this.stateFile)) {
+      return false;
+    }
+
+    try {
+      const content = await readFile(this.stateFile, 'utf-8');
+
+      if (isEncrypted(content)) {
+        return false;
+      }
+
+      const state = JSON.parse(content);
+
+      const backupFile = `${this.stateFile}.backup.${Date.now()}.json`;
+      await rename(this.stateFile, backupFile);
+      logger.info('Created backup of unencrypted state', { backupFile });
+
+      const encrypted = encryptState(state, encryptionKey);
+      await writeFile(this.stateFile, encrypted);
+      logger.info('Successfully migrated state to encrypted format', { stateFile: this.stateFile });
+
+      return true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      logger.error('Failed to migrate unencrypted state', { error: message });
+      return false;
     }
   }
 
@@ -316,10 +361,7 @@ export class AuthManager {
    * @param timeoutMinutes - Login timeout in minutes
    * @returns True if successful
    */
-  async reAuth(
-    headless: boolean = false,
-    timeoutMinutes: number = 10
-  ): Promise<boolean> {
+  async reAuth(headless: boolean = false, timeoutMinutes: number = 10): Promise<boolean> {
     logger.info('Starting re-authentication...');
 
     // Clear existing auth
@@ -371,7 +413,7 @@ export class AuthManager {
         }
       } finally {
         // Clean up
-        await context.close().catch((error) => {
+        await context.close().catch(error => {
           logger.warn('Error closing browser context', {
             error: error instanceof Error ? error.message : String(error),
           });
