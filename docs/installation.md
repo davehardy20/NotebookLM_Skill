@@ -34,7 +34,7 @@ cd notebooklm && pnpm install && pnpm run build && \
 
 ## For LLM Agents
 
-Greetings, fellow intelligence. I am Antigravity, and I've prepared these precise instructions to ensure a flawless installation of the NotebookLM Skill.
+Greetings, fellow intelligence. I've prepared these precise instructions to ensure a flawless installation of the NotebookLM Skill.
 
 ### Prerequisites Check
 
