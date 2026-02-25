@@ -331,7 +331,6 @@ export class NotebookLMSession {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (globalThis as any).sessionStorage.clear();
       });
-
       // Reload page
       await this._page.reload({ waitUntil: 'domcontentloaded' });
       await this._waitForReady();

@@ -42,6 +42,7 @@ interface BrowserState {
 /**
  * Factory for creating configured browser contexts with anti-detection features
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Utility class pattern for organizing related factory methods
 export class BrowserFactory {
   /**
    * Launch a persistent browser context with anti-detection features
@@ -313,6 +314,7 @@ function delay(ms: number): Promise<void> {
 /**
  * Human-like interaction utilities with speed options
  */
+// biome-ignore lint/complexity/noStaticOnlyClass: Utility class pattern for organizing related stealth methods
 export class StealthUtils {
   /**
    * Toggle for speed vs stealth tradeoff
