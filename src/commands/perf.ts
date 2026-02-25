@@ -3,8 +3,8 @@
  * CLI commands for performance monitoring and reporting
  */
 
-import { Command } from 'commander';
 import chalk from 'chalk';
+import type { Command } from 'commander';
 import { getMonitor } from '../performance/performance-monitor.js';
 
 /**
@@ -13,9 +13,7 @@ import { getMonitor } from '../performance/performance-monitor.js';
  * @param program - The Commander program instance
  */
 export function addPerfCommand(program: Command): void {
-  const perfCommand = program
-    .command('perf')
-    .description('Performance monitoring and reporting');
+  const perfCommand = program.command('perf').description('Performance monitoring and reporting');
 
   perfCommand
     .command('report')
@@ -101,17 +99,13 @@ async function handleReportCommand(options: {
       `${(summary.cacheHitRate * 100).toFixed(1)}%`
     )}`
   );
-  console.log(
-    `  ${chalk.white('Time saved:')} ${chalk.bold.green(`${timeSaved.toFixed(2)}s`)}`
-  );
+  console.log(`  ${chalk.white('Time saved:')} ${chalk.bold.green(`${timeSaved.toFixed(2)}s`)}`);
 
   console.log('\n' + chalk.bold.magenta('🚀 Browser Pool Performance:'));
   console.log(`  ${chalk.white('Pool queries:')} ${chalk.bold(summary.poolQueries)}`);
   console.log(`  ${chalk.white('Legacy queries:')} ${chalk.bold(summary.legacyQueries)}`);
   const poolUsageRate = (summary.poolQueries / Math.max(summary.totalQueries, 1)) * 100;
-  console.log(
-    `  ${chalk.white('Pool usage:')} ${chalk.bold.cyan(`${poolUsageRate.toFixed(1)}%`)}`
-  );
+  console.log(`  ${chalk.white('Pool usage:')} ${chalk.bold.cyan(`${poolUsageRate.toFixed(1)}%`)}`);
   console.log(`  ${chalk.white('Session fallbacks:')} ${chalk.red(summary.sessionFallbacks)}`);
   if (poolSpeedup > 0) {
     console.log(
@@ -123,18 +117,16 @@ async function handleReportCommand(options: {
   console.log(
     `  ${chalk.white('Average query:')} ${chalk.bold(`${summary.averageDurationSeconds.toFixed(2)}s`)}`
   );
-  const avgPool = summary.poolQueries > 0
-    ? summary.poolDurationSeconds / summary.poolQueries
-    : 0;
-  const avgLegacy = summary.legacyQueries > 0
-    ? summary.legacyDurationSeconds / summary.legacyQueries
-    : 0;
-  const avgCache = summary.cachedQueries > 0
-    ? summary.cacheDurationSeconds / summary.cachedQueries
-    : 0;
+  const avgPool = summary.poolQueries > 0 ? summary.poolDurationSeconds / summary.poolQueries : 0;
+  const avgLegacy =
+    summary.legacyQueries > 0 ? summary.legacyDurationSeconds / summary.legacyQueries : 0;
+  const avgCache =
+    summary.cachedQueries > 0 ? summary.cacheDurationSeconds / summary.cachedQueries : 0;
 
   console.log(`  ${chalk.white('Pool average:')} ${chalk.bold.green(`${avgPool.toFixed(2)}s`)}`);
-  console.log(`  ${chalk.white('Legacy average:')} ${chalk.bold.yellow(`${avgLegacy.toFixed(2)}s`)}`);
+  console.log(
+    `  ${chalk.white('Legacy average:')} ${chalk.bold.yellow(`${avgLegacy.toFixed(2)}s`)}`
+  );
   console.log(`  ${chalk.white('Cache average:')} ${chalk.bold.cyan(`${avgCache.toFixed(2)}s`)}`);
 
   console.log('\n' + chalk.bold.gray('🕐 System:'));
@@ -155,9 +147,7 @@ async function handleReportCommand(options: {
       const duration = `${query.durationSeconds.toFixed(2)}s`;
       const qLen = query.questionLength;
       const aLen = query.answerLength;
-      const source = query.fromCache
-        ? chalk.cyan('CACHE')
-        : chalk.green('NEW');
+      const source = query.fromCache ? chalk.cyan('CACHE') : chalk.green('NEW');
 
       console.log(
         `  ${chalk.white(time.padEnd(12))} ${chalk.white(duration.padEnd(12))} ${chalk.gray(

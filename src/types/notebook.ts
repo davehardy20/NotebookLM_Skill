@@ -17,7 +17,11 @@ export const NotebookSchema = z.object({
   createdAt: z.string().default(now).describe('ISO 8601 timestamp of creation'),
   updatedAt: z.string().default(now).describe('ISO 8601 timestamp of last update'),
   useCount: z.number().int().nonnegative().default(0).describe('Number of times queried'),
-  lastUsed: z.string().nullable().default(null).describe('ISO 8601 timestamp of last query, or null'),
+  lastUsed: z
+    .string()
+    .nullable()
+    .default(null)
+    .describe('ISO 8601 timestamp of last query, or null'),
 });
 
 export type Notebook = z.infer<typeof NotebookSchema>;
@@ -27,7 +31,11 @@ export type Notebook = z.infer<typeof NotebookSchema>;
  */
 export const NotebookLibraryDataSchema = z.object({
   notebooks: z.record(z.string(), NotebookSchema).describe('Map of notebook ID to notebook data'),
-  activeNotebookId: z.string().nullable().default(null).describe('Currently active notebook ID, or null'),
+  activeNotebookId: z
+    .string()
+    .nullable()
+    .default(null)
+    .describe('Currently active notebook ID, or null'),
   updatedAt: z.string().default(now).describe('ISO 8601 timestamp of last library update'),
 });
 
@@ -39,10 +47,16 @@ export type NotebookLibraryData = z.infer<typeof NotebookLibraryDataSchema>;
  */
 export const NotebookStatsSchema = z.object({
   totalNotebooks: z.number().int().nonnegative().describe('Total number of notebooks in library'),
-  totalTopics: z.number().int().nonnegative().describe('Total number of unique topics across all notebooks'),
+  totalTopics: z
+    .number()
+    .int()
+    .nonnegative()
+    .describe('Total number of unique topics across all notebooks'),
   totalUseCount: z.number().int().nonnegative().describe('Total usage count across all notebooks'),
   activeNotebook: NotebookSchema.nullable().describe('The currently active notebook, or null'),
-  mostUsedNotebook: NotebookSchema.nullable().describe('The most frequently used notebook, or null'),
+  mostUsedNotebook: NotebookSchema.nullable().describe(
+    'The most frequently used notebook, or null'
+  ),
   libraryPath: z.string().describe('File path to the library data file'),
 });
 

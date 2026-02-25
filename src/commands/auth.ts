@@ -3,9 +3,9 @@
  * CLI commands for authentication management
  */
 
-import { Command } from 'commander';
-import ora, { Ora } from 'ora';
 import chalk from 'chalk';
+import type { Command } from 'commander';
+import ora from 'ora';
 import { getAuthManager } from '../browser/auth-manager.js';
 
 /**
@@ -30,9 +30,7 @@ interface AuthValidateOptions {
  * @param program - The Commander program instance
  */
 export function addAuthCommand(program: Command): void {
-  const authCommand = program
-    .command('auth')
-    .description('Authentication management commands');
+  const authCommand = program.command('auth').description('Authentication management commands');
 
   authCommand
     .command('setup')
@@ -161,7 +159,11 @@ async function handleStatusCommand(): Promise<void> {
         // Warning if session is old
         if (ageDays > 7) {
           console.log(chalk.yellow(`⚠ Warning: Session is ${ageDays.toFixed(1)} days old`));
-          console.log(chalk.yellow('  Consider running "notebooklm auth validate" or "notebooklm auth reauth"'));
+          console.log(
+            chalk.yellow(
+              '  Consider running "notebooklm auth validate" or "notebooklm auth reauth"'
+            )
+          );
         }
       }
 
@@ -184,8 +186,7 @@ async function handleStatusCommand(): Promise<void> {
  *
  * @param options - Command options
  */
-async function handleValidateCommand(options: AuthValidateOptions): Promise<void> {
-  const timeout = options.timeout ? parseInt(options.timeout, 10) : 1;
+async function handleValidateCommand(_options: AuthValidateOptions): Promise<void> {
   const spinner = ora('Validating authentication...').start();
 
   try {

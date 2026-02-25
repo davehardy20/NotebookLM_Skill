@@ -9,5 +9,5 @@
  * - Query history
  */
 
-export { PerformanceMonitor, getMonitor, resetMonitor } from './performance-monitor.js';
-export type { QueryMetrics, SessionMetrics, PerformanceSummary } from '../types/performance.js';
+export type { PerformanceSummary, QueryMetrics, SessionMetrics } from '../types/performance.js';
+export { getMonitor, PerformanceMonitor, resetMonitor } from './performance-monitor.js';

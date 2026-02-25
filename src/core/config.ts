@@ -61,17 +61,17 @@ function loadConfig(): Config {
 
   const config = {
     // Paths
-    dataDir: process.env.NOTEBOOKLM_DATA_DIR || paths.dataDir,
-    browserStateDir: process.env.NOTEBOOKLM_BROWSER_STATE_DIR || paths.browserStateDir,
-    browserProfileDir: process.env.NOTEBOOKLM_BROWSER_PROFILE_DIR || paths.browserProfileDir,
-    stateFile: process.env.NOTEBOOKLM_STATE_FILE || paths.stateFile,
-    authInfoFile: process.env.NOTEBOOKLM_AUTH_INFO_FILE || paths.authInfoFile,
-    libraryFile: process.env.NOTEBOOKLM_LIBRARY_FILE || paths.libraryFile,
+    dataDir: process.env.NOTEBOOKLM_DATA_DIR ?? paths.dataDir,
+    browserStateDir: process.env.NOTEBOOKLM_BROWSER_STATE_DIR ?? paths.browserStateDir,
+    browserProfileDir: process.env.NOTEBOOKLM_BROWSER_PROFILE_DIR ?? paths.browserProfileDir,
+    stateFile: process.env.NOTEBOOKLM_STATE_FILE ?? paths.stateFile,
+    authInfoFile: process.env.NOTEBOOKLM_AUTH_INFO_FILE ?? paths.authInfoFile,
+    libraryFile: process.env.NOTEBOOKLM_LIBRARY_FILE ?? paths.libraryFile,
 
     // NotebookLM Selectors
     queryInputSelectors:
-      (process.env.NOTEBOOKLM_QUERY_SELECTORS || '').split(',').filter(Boolean).length > 0
-        ? (process.env.NOTEBOOKLM_QUERY_SELECTORS || '').split(',').filter(Boolean)
+      (process.env.NOTEBOOKLM_QUERY_SELECTORS ?? '').split(',').filter(Boolean).length > 0
+        ? (process.env.NOTEBOOKLM_QUERY_SELECTORS ?? '').split(',').filter(Boolean)
         : [
             'textarea.query-box-input',
             'textarea[aria-label="Feld für Anfragen"]',
@@ -79,8 +79,8 @@ function loadConfig(): Config {
           ],
 
     responseSelectors:
-      (process.env.NOTEBOOKLM_RESPONSE_SELECTORS || '').split(',').filter(Boolean).length > 0
-        ? (process.env.NOTEBOOKLM_RESPONSE_SELECTORS || '').split(',').filter(Boolean)
+      (process.env.NOTEBOOKLM_RESPONSE_SELECTORS ?? '').split(',').filter(Boolean).length > 0
+        ? (process.env.NOTEBOOKLM_RESPONSE_SELECTORS ?? '').split(',').filter(Boolean)
         : [
             '.to-user-container .message-text-content',
             "[data-message-author='bot']",
@@ -89,8 +89,8 @@ function loadConfig(): Config {
 
     // Browser Configuration
     browserArgs:
-      (process.env.NOTEBOOKLM_BROWSER_ARGS || '').split(',').filter(Boolean).length > 0
-        ? (process.env.NOTEBOOKLM_BROWSER_ARGS || '').split(',').filter(Boolean)
+      (process.env.NOTEBOOKLM_BROWSER_ARGS ?? '').split(',').filter(Boolean).length > 0
+        ? (process.env.NOTEBOOKLM_BROWSER_ARGS ?? '').split(',').filter(Boolean)
         : [
             '--disable-blink-features=AutomationControlled',
             '--disable-dev-shm-usage',
@@ -100,23 +100,23 @@ function loadConfig(): Config {
           ],
 
     userAgent:
-      process.env.NOTEBOOKLM_USER_AGENT ||
+      process.env.NOTEBOOKLM_USER_AGENT ??
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
 
     // Timeouts
     timeouts: {
-      login: parseInt(process.env.NOTEBOOKLM_LOGIN_TIMEOUT || '600000', 10),
-      query: parseInt(process.env.NOTEBOOKLM_QUERY_TIMEOUT || '120000', 10),
-      pageLoad: parseInt(process.env.NOTEBOOKLM_PAGE_LOAD_TIMEOUT || '30000', 10),
+      login: parseInt(process.env.NOTEBOOKLM_LOGIN_TIMEOUT ?? '600000', 10),
+      query: parseInt(process.env.NOTEBOOKLM_QUERY_TIMEOUT ?? '120000', 10),
+      pageLoad: parseInt(process.env.NOTEBOOKLM_PAGE_LOAD_TIMEOUT ?? '30000', 10),
     },
 
     // Environment
-    nodeEnv: (process.env.NODE_ENV || 'development') as 'development' | 'production' | 'test',
-    logLevel: (process.env.LOG_LEVEL || 'info') as 'debug' | 'info' | 'warn' | 'error',
+    nodeEnv: (process.env.NODE_ENV ?? 'development') as 'development' | 'production' | 'test',
+    logLevel: (process.env.LOG_LEVEL ?? 'info') as 'debug' | 'info' | 'warn' | 'error',
 
     stateEncryptionKey: process.env.STATE_ENCRYPTION_KEY,
 
-    maxParallelQueries: parseInt(process.env.MAX_PARALLEL_QUERIES || '10', 10),
+    maxParallelQueries: parseInt(process.env.MAX_PARALLEL_QUERIES ?? '10', 10),
   };
 
   // Validate configuration

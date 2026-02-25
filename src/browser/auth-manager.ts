@@ -11,15 +11,15 @@
  * Async-first implementation with Playwright
  */
 
-import { existsSync } from 'fs';
-import { readFile, writeFile, stat, unlink, rm, rename } from 'fs/promises';
-import { chromium, type BrowserContext } from 'playwright';
-import { AuthInfoSchema, type AuthInfo } from '../types/auth.js';
+import { existsSync } from 'node:fs';
+import { readFile, rename, rm, stat, unlink, writeFile } from 'node:fs/promises';
+import { type BrowserContext, chromium } from 'playwright';
+import { encryptState, getEncryptionKeyFromEnv, isEncrypted } from '../core/crypto.js';
 import { AuthError, BrowserError } from '../core/errors.js';
 import { createChildLogger } from '../core/logger.js';
 import { Paths } from '../core/paths.js';
+import { type AuthInfo, AuthInfoSchema } from '../types/auth.js';
 import { BrowserFactory } from './browser-utils.js';
-import { encryptState, isEncrypted, getEncryptionKeyFromEnv } from '../core/crypto.js';
 
 const logger = createChildLogger('AuthManager');
 
@@ -294,7 +294,7 @@ export class AuthManager {
       await rename(this.stateFile, backupFile);
       logger.info('Created backup of unencrypted state', { backupFile });
 
-      const encrypted = encryptState(state, encryptionKey);
+      const encrypted = encryptState(state as object, encryptionKey);
       await writeFile(this.stateFile, encrypted);
       logger.info('Successfully migrated state to encrypted format', { stateFile: this.stateFile });
 

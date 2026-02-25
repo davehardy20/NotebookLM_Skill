@@ -3,9 +3,9 @@
  * Provides consistent paths across Linux, macOS, and Windows
  */
 
-import { homedir, platform } from 'os';
-import { join } from 'path';
-import { chmod, mkdir, stat } from 'fs/promises';
+import { chmod, mkdir, stat } from 'node:fs/promises';
+import { homedir, platform } from 'node:os';
+import { join } from 'node:path';
 import { logger } from './logger.js';
 
 /**
@@ -25,7 +25,7 @@ export class Paths {
   }
 
   get skillDir(): string {
-    return process.env.NOTEBOOKLM_SKILL_DIR || join(homedir(), '.claude', 'skills', 'notebooklm');
+    return process.env.NOTEBOOKLM_SKILL_DIR ?? join(homedir(), '.claude', 'skills', 'notebooklm');
   }
 
   get dataDir(): string {
@@ -156,7 +156,9 @@ export class Paths {
             await chmod(file, 0o600);
             logger.warn(`[Security] Fixed file permissions: ${file}`);
           }
-        } catch {}
+        } catch {
+          /* ignore permission check errors */
+        }
       }
 
       if (issues.length > 0) {

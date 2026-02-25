@@ -1,1 +1,1 @@
-export { NotebookLibrary, getNotebookLibrary, resetNotebookLibrary } from './notebook-manager.js';
+export { getNotebookLibrary, NotebookLibrary, resetNotebookLibrary } from './notebook-manager.js';

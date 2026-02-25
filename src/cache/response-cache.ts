@@ -9,13 +9,13 @@
  * - Automatic cache invalidation based on age
  */
 
-import { createHash } from 'crypto';
-import { readFile, writeFile, mkdir, chmod } from 'fs/promises';
-import { dirname } from 'path';
+import { createHash } from 'node:crypto';
+import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
 import { z } from 'zod';
-import { Paths } from '../core/paths.js';
 import { logger } from '../core/logger.js';
-import { CacheEntry, CacheEntrySchema, CacheStats } from '../types/cache.js';
+import { Paths } from '../core/paths.js';
+import { type CacheEntry, CacheEntrySchema, type CacheStats } from '../types/cache.js';
 
 const DEFAULT_MAX_SIZE = 100;
 const DEFAULT_TTL_SECONDS = 86400; // 24 hours
@@ -47,7 +47,13 @@ class InternalCacheEntry {
   timestamp: number;
   hitCount: number;
 
-  constructor(question: string, answer: string, notebookUrl: string, timestamp?: number, hitCount: number = 0) {
+  constructor(
+    question: string,
+    answer: string,
+    notebookUrl: string,
+    timestamp?: number,
+    hitCount: number = 0
+  ) {
     this.question = question;
     this.answer = answer;
     this.notebookUrl = notebookUrl;
@@ -56,7 +62,7 @@ class InternalCacheEntry {
   }
 
   isExpired(ttlSeconds: number): boolean {
-    return (Date.now() / 1000 - this.timestamp) > ttlSeconds;
+    return Date.now() / 1000 - this.timestamp > ttlSeconds;
   }
 
   ageSeconds(): number {
@@ -114,11 +120,7 @@ export class ResponseCache {
   private writesSinceLastSave = 0;
   private isLoaded = false;
 
-  constructor(
-    maxSize?: number,
-    ttlSeconds?: number,
-    cacheFile?: string
-  ) {
+  constructor(maxSize?: number, ttlSeconds?: number, cacheFile?: string) {
     this.maxSize = maxSize ?? DEFAULT_MAX_SIZE;
     this.ttlSeconds = ttlSeconds ?? DEFAULT_TTL_SECONDS;
 
@@ -197,7 +199,7 @@ export class ResponseCache {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         logger.debug('Cache file does not exist, starting with empty cache');
       } else {
-        logger.warn(`Could not load cache: ${error}`);
+        logger.warn(`Could not load cache: ${String(error)}`);
         this.cache.clear();
       }
     }
@@ -234,7 +236,7 @@ export class ResponseCache {
         }
       }
     } catch (error) {
-      logger.warn(`Could not save cache: ${error}`);
+      logger.warn(`Could not save cache: ${String(error)}`);
     }
   }
 
@@ -271,11 +273,7 @@ export class ResponseCache {
   /**
    * Store a response in the cache
    */
-  async set(
-    question: string,
-    answer: string,
-    notebookUrl: string
-  ): Promise<void> {
+  async set(question: string, answer: string, notebookUrl: string): Promise<void> {
     await this.initialize();
 
     // Skip caching sensitive content (PII, credentials, etc.)
@@ -313,10 +311,7 @@ export class ResponseCache {
   /**
    * Invalidate cache entries
    */
-  async invalidate(
-    question?: string,
-    notebookUrl?: string
-  ): Promise<number> {
+  async invalidate(question?: string, notebookUrl?: string): Promise<number> {
     await this.initialize();
 
     if (!question && !notebookUrl) {
@@ -332,8 +327,7 @@ export class ResponseCache {
         toRemove.push(key);
       } else if (
         question &&
-        entry.question.toLowerCase().trim() ===
-          question.toLowerCase().trim()
+        entry.question.toLowerCase().trim() === question.toLowerCase().trim()
       ) {
         toRemove.push(key);
       }
@@ -401,7 +395,7 @@ export class ResponseCache {
     await this.initialize();
 
     const entries = Array.from(this.cache.values())
-      .map((e) => e.toCacheEntry())
+      .map(e => e.toCacheEntry())
       .sort((a, b) => b.timestamp - a.timestamp);
 
     return limit ? entries.slice(0, limit) : entries;

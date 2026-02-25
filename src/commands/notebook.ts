@@ -3,11 +3,11 @@
  * CLI commands for managing NotebookLM notebook library
  */
 
-import { Command } from 'commander';
 import chalk from 'chalk';
+import type { Command } from 'commander';
 import ora from 'ora';
-import { getNotebookLibrary } from '../notebook/notebook-manager.js';
 import { validateNotebookUrl } from '../core/validation.js';
+import { getNotebookLibrary } from '../notebook/notebook-manager.js';
 
 interface AddCommandOptions {
   name?: string;
@@ -123,7 +123,7 @@ async function handleAddCommand(url: string, options: AddCommandOptions): Promis
     const notebook = await library.addNotebook(
       url,
       options.name,
-      options.description || '',
+      options.description ?? '',
       topics,
       contentTypes,
       useCases,

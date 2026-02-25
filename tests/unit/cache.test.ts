@@ -9,10 +9,9 @@
  * - Cache statistics accuracy
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ResponseCache, resetCache } from '../../src/cache/response-cache.js';
-import { CacheEntry, CacheStats } from '../../src/types/cache.js';
 
 const mocks = vi.hoisted(() => ({
   readFile: vi.fn(),
@@ -77,7 +76,11 @@ describe('ResponseCache', () => {
     it('returns cached entry when present', async () => {
       mocks.readFile.mockRejectedValue({ code: 'ENOENT' });
 
-      await cache.set('What is AI?', 'Artificial Intelligence is...', 'https://example.com/notebook');
+      await cache.set(
+        'What is AI?',
+        'Artificial Intelligence is...',
+        'https://example.com/notebook'
+      );
       mocks.writeFile.mockClear();
 
       const result = await cache.get('What is AI?', 'https://example.com/notebook');

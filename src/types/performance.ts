@@ -39,11 +39,24 @@ export const PerformanceSummarySchema = z.object({
   cachedQueries: z.number().int().nonnegative().default(0).describe('Queries served from cache'),
   poolQueries: z.number().int().nonnegative().default(0).describe('Queries using browser pool'),
   legacyQueries: z.number().int().nonnegative().default(0).describe('Queries using legacy mode'),
-  sessionFallbacks: z.number().int().nonnegative().default(0).describe('Times pool fell back to legacy'),
+  sessionFallbacks: z
+    .number()
+    .int()
+    .nonnegative()
+    .default(0)
+    .describe('Times pool fell back to legacy'),
   totalDurationSeconds: z.number().nonnegative().default(0).describe('Total time spent on queries'),
   poolDurationSeconds: z.number().nonnegative().default(0).describe('Time spent in pool queries'),
-  legacyDurationSeconds: z.number().nonnegative().default(0).describe('Time spent in legacy queries'),
-  cacheDurationSeconds: z.number().nonnegative().default(0).describe('Time spent on cached queries'),
+  legacyDurationSeconds: z
+    .number()
+    .nonnegative()
+    .default(0)
+    .describe('Time spent in legacy queries'),
+  cacheDurationSeconds: z
+    .number()
+    .nonnegative()
+    .default(0)
+    .describe('Time spent on cached queries'),
   averageDurationSeconds: z.number().nonnegative().default(0).describe('Average query duration'),
   successRate: z.number().min(0).max(1).default(0).describe('Success rate (0-1)'),
   cacheHitRate: z.number().min(0).max(1).default(0).describe('Cache hit rate (0-1)'),

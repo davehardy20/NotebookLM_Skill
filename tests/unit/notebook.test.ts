@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { promises as fs } from 'node:fs';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NotebookLibrary, resetNotebookLibrary } from '../../src/notebook/notebook-manager.js';
-import { promises as fs } from 'fs';
 
 vi.mock('fs');
 
@@ -63,14 +63,14 @@ describe('NotebookLibrary', () => {
           'Different description',
           ['Topic2']
         )
-      ).rejects.toThrow("Notebook with ID 'first-notebook' already exists");
+      ).rejects.toThrow("Notebook 'First Notebook' (ID: first-notebook) already exists");
     });
 
     it('getNotebook - returns notebook by ID', async () => {
       mkdir.mockResolvedValue(undefined);
       writeFile.mockResolvedValue(undefined);
 
-      const created = await library.addNotebook(
+      const _created = await library.addNotebook(
         'https://notebooklm.google.com/notebook/123',
         'My Notebook',
         'A test notebook',
@@ -165,14 +165,29 @@ describe('NotebookLibrary', () => {
       mkdir.mockResolvedValue(undefined);
       writeFile.mockResolvedValue(undefined);
 
-      await library.addNotebook('https://notebooklm.google.com/notebook/1', 'Notebook 1', 'Desc 1', ['Topic1']);
-      await library.addNotebook('https://notebooklm.google.com/notebook/2', 'Notebook 2', 'Desc 2', ['Topic2']);
-      await library.addNotebook('https://notebooklm.google.com/notebook/3', 'Notebook 3', 'Desc 3', ['Topic3']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/1',
+        'Notebook 1',
+        'Desc 1',
+        ['Topic1']
+      );
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/2',
+        'Notebook 2',
+        'Desc 2',
+        ['Topic2']
+      );
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/3',
+        'Notebook 3',
+        'Desc 3',
+        ['Topic3']
+      );
 
       const notebooks = library.listNotebooks();
 
       expect(notebooks).toHaveLength(3);
-      expect(notebooks.map((n) => n.name)).toEqual(['Notebook 1', 'Notebook 2', 'Notebook 3']);
+      expect(notebooks.map(n => n.name)).toEqual(['Notebook 1', 'Notebook 2', 'Notebook 3']);
     });
   });
 
@@ -181,9 +196,33 @@ describe('NotebookLibrary', () => {
       mkdir.mockResolvedValue(undefined);
       writeFile.mockResolvedValue(undefined);
 
-      await library.addNotebook('https://notebooklm.google.com/notebook/1', 'AI Research', 'Research on AI topics', ['AI', 'Machine Learning'], ['PDF', 'Articles'], ['Research'], ['ai', 'research']);
-      await library.addNotebook('https://notebooklm.google.com/notebook/2', 'Web Development', 'Full stack development guides', ['Web', 'React', 'Node.js'], ['Docs', 'Code'], ['Learning'], ['web', 'dev']);
-      await library.addNotebook('https://notebooklm.google.com/notebook/3', 'Data Science', 'Data analysis notebooks', ['Data', 'Analytics', 'Python'], ['Datasets', 'Notebooks'], ['Analysis'], ['data', 'science']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/1',
+        'AI Research',
+        'Research on AI topics',
+        ['AI', 'Machine Learning'],
+        ['PDF', 'Articles'],
+        ['Research'],
+        ['ai', 'research']
+      );
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/2',
+        'Web Development',
+        'Full stack development guides',
+        ['Web', 'React', 'Node.js'],
+        ['Docs', 'Code'],
+        ['Learning'],
+        ['web', 'dev']
+      );
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/3',
+        'Data Science',
+        'Data analysis notebooks',
+        ['Data', 'Analytics', 'Python'],
+        ['Datasets', 'Notebooks'],
+        ['Analysis'],
+        ['data', 'science']
+      );
     });
 
     it('searchNotebooks - finds by name', () => {
@@ -246,8 +285,18 @@ describe('NotebookLibrary', () => {
     });
 
     it('selectNotebook - sets active', async () => {
-      await library.addNotebook('https://notebooklm.google.com/notebook/1', 'Notebook 1', 'Desc 1', ['Topic1']);
-      await library.addNotebook('https://notebooklm.google.com/notebook/2', 'Notebook 2', 'Desc 2', ['Topic2']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/1',
+        'Notebook 1',
+        'Desc 1',
+        ['Topic1']
+      );
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/2',
+        'Notebook 2',
+        'Desc 2',
+        ['Topic2']
+      );
 
       await library.selectNotebook('notebook-2');
 
@@ -258,7 +307,12 @@ describe('NotebookLibrary', () => {
     it('getActiveNotebook - returns active', async () => {
       writeFile.mockResolvedValue(undefined);
 
-      const created = await library.addNotebook('https://notebooklm.google.com/notebook/1', 'First Notebook', 'Desc', ['Topic1']);
+      const created = await library.addNotebook(
+        'https://notebooklm.google.com/notebook/1',
+        'First Notebook',
+        'Desc',
+        ['Topic1']
+      );
 
       const active = library.getActiveNotebook();
 
@@ -270,9 +324,16 @@ describe('NotebookLibrary', () => {
       mkdir.mockResolvedValue(undefined);
       writeFile.mockResolvedValue(undefined);
 
-      await library.addNotebook('https://notebooklm.google.com/notebook/1', 'Notebook 1', 'Desc 1', ['Topic1']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/1',
+        'Notebook 1',
+        'Desc 1',
+        ['Topic1']
+      );
 
-      await expect(library.selectNotebook('nonexistent')).rejects.toThrow('Notebook not found: nonexistent');
+      await expect(library.selectNotebook('nonexistent')).rejects.toThrow(
+        'Notebook not found: nonexistent'
+      );
     });
   });
 
@@ -281,9 +342,24 @@ describe('NotebookLibrary', () => {
       mkdir.mockResolvedValue(undefined);
       writeFile.mockResolvedValue(undefined);
 
-      await library.addNotebook('https://notebooklm.google.com/notebook/1', 'Notebook 1', 'Desc 1', ['AI', 'ML']);
-      await library.addNotebook('https://notebooklm.google.com/notebook/2', 'Notebook 2', 'Desc 2', ['Web', 'React']);
-      await library.addNotebook('https://notebooklm.google.com/notebook/3', 'Notebook 3', 'Desc 3', ['AI', 'Python']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/1',
+        'Notebook 1',
+        'Desc 1',
+        ['AI', 'ML']
+      );
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/2',
+        'Notebook 2',
+        'Desc 2',
+        ['Web', 'React']
+      );
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/3',
+        'Notebook 3',
+        'Desc 3',
+        ['AI', 'Python']
+      );
     });
 
     it('getStats - calculates total count', () => {
@@ -323,7 +399,12 @@ describe('NotebookLibrary', () => {
     it('incrementUseCount - updates timestamp', async () => {
       writeFile.mockResolvedValue(undefined);
 
-      await library.addNotebook('https://notebooklm.google.com/notebook/4', 'Notebook 4', 'Desc 4', ['Topic']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/4',
+        'Notebook 4',
+        'Desc 4',
+        ['Topic']
+      );
 
       const notebook = await library.incrementUseCount('notebook-4');
 
@@ -393,7 +474,12 @@ describe('NotebookLibrary', () => {
     });
 
     it('save to JSON on changes', async () => {
-      await library.addNotebook('https://notebooklm.google.com/notebook/123', 'My Notebook', 'Desc', ['Topic']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/123',
+        'My Notebook',
+        'Desc',
+        ['Topic']
+      );
 
       expect(writeFile).toHaveBeenCalled();
 
@@ -405,29 +491,48 @@ describe('NotebookLibrary', () => {
     });
 
     it('save on removeNotebook', async () => {
-      await library.addNotebook('https://notebooklm.google.com/notebook/123', 'My Notebook', 'Desc', ['Topic']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/123',
+        'My Notebook',
+        'Desc',
+        ['Topic']
+      );
       await library.removeNotebook('my-notebook');
 
       expect(writeFile).toHaveBeenCalledTimes(2);
     });
 
     it('save on updateNotebook', async () => {
-      await library.addNotebook('https://notebooklm.google.com/notebook/123', 'My Notebook', 'Desc', ['Topic']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/123',
+        'My Notebook',
+        'Desc',
+        ['Topic']
+      );
       await library.updateNotebook('my-notebook', { name: 'Updated' });
 
       expect(writeFile).toHaveBeenCalledTimes(2);
     });
 
     it('save on selectNotebook', async () => {
-      await library.addNotebook('https://notebooklm.google.com/notebook/1', 'Notebook 1', 'Desc', ['Topic']);
-      await library.addNotebook('https://notebooklm.google.com/notebook/2', 'Notebook 2', 'Desc', ['Topic']);
+      await library.addNotebook('https://notebooklm.google.com/notebook/1', 'Notebook 1', 'Desc', [
+        'Topic',
+      ]);
+      await library.addNotebook('https://notebooklm.google.com/notebook/2', 'Notebook 2', 'Desc', [
+        'Topic',
+      ]);
       await library.selectNotebook('notebook-2');
 
       expect(writeFile).toHaveBeenCalledTimes(3);
     });
 
     it('save on incrementUseCount', async () => {
-      await library.addNotebook('https://notebooklm.google.com/notebook/123', 'My Notebook', 'Desc', ['Topic']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/123',
+        'My Notebook',
+        'Desc',
+        ['Topic']
+      );
       await library.incrementUseCount('my-notebook');
 
       expect(writeFile).toHaveBeenCalledTimes(2);
@@ -497,7 +602,12 @@ describe('NotebookLibrary', () => {
       vi.mocked(fs.mkdir).mockResolvedValue(undefined);
       vi.mocked(fs.writeFile).mockResolvedValue(undefined);
 
-      await library.addNotebook('https://notebooklm.google.com/notebook/123', 'My Notebook', 'Desc', ['Topic']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/123',
+        'My Notebook',
+        'Desc',
+        ['Topic']
+      );
 
       expect(writeFile).toHaveBeenCalled();
 
@@ -512,7 +622,12 @@ describe('NotebookLibrary', () => {
       vi.mocked(fs.mkdir).mockResolvedValue(undefined);
       vi.mocked(fs.writeFile).mockResolvedValue(undefined);
 
-      await library.addNotebook('https://notebooklm.google.com/notebook/123', 'My Notebook', 'Desc', ['Topic']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/123',
+        'My Notebook',
+        'Desc',
+        ['Topic']
+      );
       await library.removeNotebook('my-notebook');
 
       expect(fs.writeFile).toHaveBeenCalledTimes(2);
@@ -522,7 +637,12 @@ describe('NotebookLibrary', () => {
       vi.mocked(fs.mkdir).mockResolvedValue(undefined);
       vi.mocked(fs.writeFile).mockResolvedValue(undefined);
 
-      await library.addNotebook('https://notebooklm.google.com/notebook/123', 'My Notebook', 'Desc', ['Topic']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/123',
+        'My Notebook',
+        'Desc',
+        ['Topic']
+      );
       await library.updateNotebook('my-notebook', { name: 'Updated' });
 
       expect(fs.writeFile).toHaveBeenCalledTimes(2);
@@ -532,8 +652,12 @@ describe('NotebookLibrary', () => {
       vi.mocked(fs.mkdir).mockResolvedValue(undefined);
       vi.mocked(fs.writeFile).mockResolvedValue(undefined);
 
-      await library.addNotebook('https://notebooklm.google.com/notebook/1', 'Notebook 1', 'Desc', ['Topic']);
-      await library.addNotebook('https://notebooklm.google.com/notebook/2', 'Notebook 2', 'Desc', ['Topic']);
+      await library.addNotebook('https://notebooklm.google.com/notebook/1', 'Notebook 1', 'Desc', [
+        'Topic',
+      ]);
+      await library.addNotebook('https://notebooklm.google.com/notebook/2', 'Notebook 2', 'Desc', [
+        'Topic',
+      ]);
       await library.selectNotebook('notebook-2');
 
       expect(fs.writeFile).toHaveBeenCalledTimes(3);
@@ -543,7 +667,12 @@ describe('NotebookLibrary', () => {
       vi.mocked(fs.mkdir).mockResolvedValue(undefined);
       vi.mocked(fs.writeFile).mockResolvedValue(undefined);
 
-      await library.addNotebook('https://notebooklm.google.com/notebook/123', 'My Notebook', 'Desc', ['Topic']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/123',
+        'My Notebook',
+        'Desc',
+        ['Topic']
+      );
       await library.incrementUseCount('my-notebook');
 
       expect(fs.writeFile).toHaveBeenCalledTimes(2);
@@ -585,7 +714,12 @@ describe('NotebookLibrary', () => {
       mkdir.mockResolvedValue(undefined);
       writeFile.mockResolvedValue(undefined);
 
-      await library.addNotebook('https://notebooklm.google.com/notebook/1', 'Only Notebook', 'Desc', ['Topic']);
+      await library.addNotebook(
+        'https://notebooklm.google.com/notebook/1',
+        'Only Notebook',
+        'Desc',
+        ['Topic']
+      );
       await library.removeNotebook('only-notebook');
 
       expect(library.getActiveNotebook()).toBeUndefined();

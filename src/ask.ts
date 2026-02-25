@@ -12,21 +12,21 @@
 
 import { chromium } from 'playwright';
 import {
-  AuthManager,
-  sessionPool,
   AuthExpiredError,
+  AuthManager,
   BrowserCrashedError,
   BrowserFactory,
-  setupResourceBlocking,
-  StealthUtils,
-  waitForResponseOptimized,
   QUERY_INPUT_SELECTORS,
+  StealthUtils,
+  sessionPool,
+  setupResourceBlocking,
+  waitForResponseOptimized,
 } from './browser/index.js';
 import { getCache } from './cache/index.js';
-import { getNotebookLibrary } from './notebook/index.js';
-import { getMonitor } from './performance/index.js';
 import { createChildLogger } from './core/logger.js';
 import { validateNotebookUrl } from './core/validation.js';
+import { getNotebookLibrary } from './notebook/index.js';
+import { getMonitor } from './performance/index.js';
 
 const logger = createChildLogger('AskQuestion');
 
@@ -171,7 +171,7 @@ export async function askNotebookLMOptimized(
           break;
         }
       } catch {
-        continue;
+        /* ignore element not found */
       }
     }
 
@@ -349,7 +349,7 @@ export async function askNotebookLMLegacy(
           break;
         }
       } catch {
-        continue;
+        /* ignore element not found */
       }
     }
 
@@ -529,5 +529,5 @@ export async function getAvailableNotebooks(): Promise<
  */
 export async function query(question: string, notebookUrl: string): Promise<string | null> {
   const result = await askNotebookLM(question, notebookUrl);
-  return result?.answer || null;
+  return result?.answer ?? null;
 }

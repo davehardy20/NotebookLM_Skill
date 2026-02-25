@@ -3,13 +3,12 @@
  * CLI command for asking questions to NotebookLM
  */
 
-import { Command } from 'commander';
-import ora, { Ora } from 'ora';
+import type { Command } from 'commander';
+import ora from 'ora';
 import { askNotebookLM, resolveNotebookUrl } from '../ask.js';
-import { queryMultipleNotebooks, formatParallelResults } from '../parallel-ask.js';
-import { validateNotebookUrl } from '../core/validation.js';
-import { AuthError, NotFoundError } from '../core/errors.js';
 import { AuthExpiredError, BrowserCrashedError } from '../browser/index.js';
+import { AuthError, NotFoundError } from '../core/errors.js';
+import { validateNotebookUrl } from '../core/validation.js';
 
 /**
  * Options for the ask command
@@ -66,7 +65,7 @@ async function handleAskCommand(question: string, options: AskCommandOptions): P
     // Resolve notebook URL from options
     const notebookUrl = await resolveNotebookUrl({
       notebookUrl: options.notebookUrl,
-      notebookId: options.notebookId || options.notebook,
+      notebookId: options.notebookId ?? options.notebook,
       useActive: true,
     });
 

@@ -7,8 +7,17 @@ export const AuthInfoSchema = z.object({
   authenticated: z.boolean().describe('Whether user is currently authenticated'),
   stateFile: z.string().optional().describe('Path to browser state file'),
   stateExists: z.boolean().describe('Whether state file exists on disk'),
-  stateAgeHours: z.number().nonnegative().nullable().optional().describe('Age of state file in hours, or null'),
-  authenticatedAtIso: z.string().nullable().optional().describe('ISO 8601 timestamp of authentication, or null'),
+  stateAgeHours: z
+    .number()
+    .nonnegative()
+    .nullable()
+    .optional()
+    .describe('Age of state file in hours, or null'),
+  authenticatedAtIso: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('ISO 8601 timestamp of authentication, or null'),
 });
 
 export type AuthInfo = z.infer<typeof AuthInfoSchema>;

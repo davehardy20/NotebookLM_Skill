@@ -22,14 +22,25 @@ export const BrowserOptionsSchema = z.object({
   headless: z.boolean().default(true).describe('Run browser in headless mode'),
   slowMo: z.number().nonnegative().default(0).describe('Slow down actions by N milliseconds'),
   timeout: z.number().int().positive().default(30000).describe('Default timeout in milliseconds'),
-  navigationTimeout: z.number().int().positive().default(30000).describe('Navigation timeout in milliseconds'),
+  navigationTimeout: z
+    .number()
+    .int()
+    .positive()
+    .default(30000)
+    .describe('Navigation timeout in milliseconds'),
   userAgent: z.string().optional().describe('Custom user agent string'),
-  viewport: z.object({
-    width: z.number().int().positive(),
-    height: z.number().int().positive(),
-  }).optional().describe('Viewport dimensions'),
+  viewport: z
+    .object({
+      width: z.number().int().positive(),
+      height: z.number().int().positive(),
+    })
+    .optional()
+    .describe('Viewport dimensions'),
   blockResources: z.boolean().default(true).describe('Block images, fonts, and analytics'),
-  blockResourceTypes: z.array(z.string()).default(['image', 'font', 'stylesheet']).describe('Resource types to block'),
+  blockResourceTypes: z
+    .array(z.string())
+    .default(['image', 'font', 'stylesheet'])
+    .describe('Resource types to block'),
   acceptDownloads: z.boolean().default(false).describe('Accept file downloads'),
   ignoreHttpsErrors: z.boolean().default(false).describe('Ignore HTTPS errors'),
   locale: z.string().default('en-US').describe('Browser locale'),
@@ -43,8 +54,18 @@ export type BrowserOptions = z.infer<typeof BrowserOptionsSchema>;
  */
 export const BrowserPoolConfigSchema = z.object({
   maxSessions: z.number().int().positive().default(5).describe('Maximum concurrent sessions'),
-  sessionIdleTimeout: z.number().int().positive().default(900).describe('Session idle timeout in seconds'),
-  cleanupInterval: z.number().int().positive().default(60).describe('Cleanup check interval in seconds'),
+  sessionIdleTimeout: z
+    .number()
+    .int()
+    .positive()
+    .default(900)
+    .describe('Session idle timeout in seconds'),
+  cleanupInterval: z
+    .number()
+    .int()
+    .positive()
+    .default(60)
+    .describe('Cleanup check interval in seconds'),
   enableMetrics: z.boolean().default(true).describe('Enable performance metrics'),
   enableCache: z.boolean().default(true).describe('Enable response caching'),
 });

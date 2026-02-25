@@ -1,76 +1,64 @@
 // NotebookLM Skill - TypeScript Edition
 // Main entry point for programmatic API usage
 
-export * from './types/index.js';
-
+// Query interface exports (main API)
+export {
+  askNotebookLM,
+  askNotebookLMLegacy,
+  askNotebookLMOptimized,
+  DEFAULT_CONFIG,
+  FOLLOW_UP_REMINDER,
+  getAvailableNotebooks,
+  type QueryConfig,
+  type QueryResult,
+  query,
+  resolveNotebookUrl,
+} from './ask.js';
+// Browser exports
+export { AuthManager, getAuthManager, resetAuthManager } from './browser/auth-manager.js';
+export {
+  AuthExpiredError,
+  BrowserCrashedError,
+  getPool,
+  NotebookLMSession,
+  SessionPool,
+  sessionPool,
+} from './browser/browser-pool.js';
+export {
+  BrowserFactory,
+  StealthUtils,
+  setupMinimalBlocking,
+  setupResourceBlocking,
+  waitForResponseOptimized,
+} from './browser/browser-utils.js';
+// Cache exports
+export { getCache, ResponseCache, resetCache } from './cache/response-cache.js';
 // Core exports
-export { config, getConfig, resetConfig, type Config } from './core/config.js';
-export { logger, createChildLogger, type LogLevel } from './core/logger.js';
+export { type Config, config, getConfig, resetConfig } from './core/config.js';
 export {
   AppError,
   AuthError,
   BrowserError,
-  NotebookError,
   ConfigError,
+  isAppError,
+  NotebookError,
+  NotFoundError,
   TimeoutError,
   ValidationError,
-  NotFoundError,
-  isAppError,
 } from './core/errors.js';
+export { createChildLogger, type LogLevel, logger } from './core/logger.js';
 export { Paths } from './core/paths.js';
-
-// Browser exports
-export {
-  AuthManager,
-  getAuthManager,
-  resetAuthManager,
-} from './browser/auth-manager.js';
-export {
-  BrowserFactory,
-  StealthUtils,
-  setupResourceBlocking,
-  setupMinimalBlocking,
-  waitForResponseOptimized,
-} from './browser/browser-utils.js';
-export {
-  NotebookLMSession,
-  SessionPool,
-  sessionPool,
-  getPool,
-  AuthExpiredError,
-  BrowserCrashedError,
-} from './browser/browser-pool.js';
-
-// Cache exports
-export { ResponseCache, getCache, resetCache } from './cache/response-cache.js';
 
 // Notebook exports
 export {
-  NotebookLibrary,
   getNotebookLibrary,
+  NotebookLibrary,
   resetNotebookLibrary,
 } from './notebook/notebook-manager.js';
 
 // Performance exports
-export {
-  PerformanceMonitor,
-  getMonitor,
-  resetMonitor,
-} from './performance/performance-monitor.js';
-
-// Query interface exports (main API)
-export {
-  askNotebookLM,
-  askNotebookLMOptimized,
-  askNotebookLMLegacy,
-  query,
-  resolveNotebookUrl,
-  getAvailableNotebooks,
-  FOLLOW_UP_REMINDER,
-  DEFAULT_CONFIG,
-  type QueryConfig,
-  type QueryResult,
-} from './ask.js';
+export { getMonitor, PerformanceMonitor, resetMonitor } from './performance/performance-monitor.js';
+export * from './types/index.js';
 
 // Version
 export const VERSION = '1.0.0';

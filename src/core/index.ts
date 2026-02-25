@@ -3,27 +3,24 @@
  * Exports configuration, paths, logging, and error handling
  */
 
+export type { Config } from './config.js';
 // Configuration
 export { config, getConfig, resetConfig } from './config.js';
-export type { Config } from './config.js';
-
-// Paths
-export { Paths } from './paths.js';
-
-// Logger
-export { logger, createChildLogger } from './logger.js';
-export type { LogLevel } from './logger.js';
-
 // Errors
 export {
   AppError,
-  ConfigError,
   AuthError,
   BrowserError,
+  CacheError,
+  ConfigError,
+  isAppError,
   NotebookError,
+  NotFoundError,
   TimeoutError,
   ValidationError,
-  NotFoundError,
-  CacheError,
-  isAppError,
 } from './errors.js';
+export type { LogLevel } from './logger.js';
+// Logger
+export { createChildLogger, logger } from './logger.js';
+// Paths
+export { Paths } from './paths.js';

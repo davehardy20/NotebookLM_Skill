@@ -11,7 +11,7 @@
  * - AuthTag: 16 bytes (GCM authentication tag)
  */
 
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto';
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
 import { createChildLogger } from './logger.js';
 
 const logger = createChildLogger('Crypto');
@@ -250,7 +250,7 @@ export function parseStateData(data: string, key?: string): object {
   }
 
   // Data is encrypted, need key
-  const encryptionKey = key || getEncryptionKeyFromEnv();
+  const encryptionKey = key ?? getEncryptionKeyFromEnv();
 
   if (!encryptionKey) {
     throw new Error(
@@ -272,7 +272,7 @@ export function parseStateData(data: string, key?: string): object {
  * @returns String to write to file (encrypted or JSON)
  */
 export function serializeStateData(data: object, key?: string): string {
-  const encryptionKey = key || getEncryptionKeyFromEnv();
+  const encryptionKey = key ?? getEncryptionKeyFromEnv();
 
   if (encryptionKey) {
     try {

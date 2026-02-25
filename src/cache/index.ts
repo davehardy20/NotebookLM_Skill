@@ -1,1 +1,1 @@
-export { ResponseCache, getCache, resetCache } from './response-cache.js';
+export { getCache, ResponseCache, resetCache } from './response-cache.js';

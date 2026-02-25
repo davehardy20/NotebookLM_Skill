@@ -3,11 +3,10 @@
  * CLI command for managing the response cache
  */
 
+import chalk from 'chalk';
 import { Command } from 'commander';
 import ora from 'ora';
-import chalk from 'chalk';
-import { getCache, ResponseCache } from '../cache/response-cache.js';
-import type { CacheStats, CacheEntry } from '../types/cache.js';
+import { getCache } from '../cache/response-cache.js';
 
 /**
  * Add 'cache' command with subcommands to the CLI program
@@ -15,8 +14,9 @@ import type { CacheStats, CacheEntry } from '../types/cache.js';
  * @param program - The Commander program instance
  */
 export function addCacheCommand(program: Command): void {
-  const cache = new Command('cache')
-    .description('Manage response cache (stats, list, clear, cleanup)');
+  const cache = new Command('cache').description(
+    'Manage response cache (stats, list, clear, cleanup)'
+  );
 
   cache
     .command('stats')
@@ -115,9 +115,10 @@ async function handleListCommand(limit: number): Promise<void> {
     entries.forEach((entry, index) => {
       const age = formatAge(entry.timestamp);
       const prefix = `${index + 1}.`.padEnd(4);
-      const hitBadge = entry.hitCount > 0
-        ? chalk.green(`[${entry.hitCount} hit${entry.hitCount > 1 ? 's' : ''}]`)
-        : chalk.gray('[unused]');
+      const hitBadge =
+        entry.hitCount > 0
+          ? chalk.green(`[${entry.hitCount} hit${entry.hitCount > 1 ? 's' : ''}]`)
+          : chalk.gray('[unused]');
 
       console.log(`  ${chalk.bold(prefix)} ${chalk.cyan(truncate(entry.question, 50))}`);
       console.log(`     ${chalk.gray(hitBadge)} ${chalk.gray(age)} old`);
@@ -145,19 +146,17 @@ async function handleClearCommand(): Promise<void> {
       return;
     }
 
-    console.log(
-      chalk.yellow(`\n⚠ You are about to clear ${stats.size} cached entries.\n`)
-    );
+    console.log(chalk.yellow(`\n⚠ You are about to clear ${stats.size} cached entries.\n`));
     console.log(chalk.gray('This action cannot be undone.\n'));
 
-    const readline = await import('readline');
+    const readline = await import('node:readline');
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
     });
 
-    const answer = await new Promise<string>((resolve) => {
-      rl.question(chalk.cyan('Are you sure? (y/N): '), (input) => {
+    const answer = await new Promise<string>(resolve => {
+      rl.question(chalk.cyan('Are you sure? (y/N): '), input => {
         rl.close();
         resolve(input.trim().toLowerCase());
       });

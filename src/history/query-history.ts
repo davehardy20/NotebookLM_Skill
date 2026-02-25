@@ -1,6 +1,6 @@
-import { promises as fs } from 'fs';
-import { Paths } from '../core/paths.js';
+import { promises as fs } from 'node:fs';
 import { logger } from '../core/logger.js';
+import { Paths } from '../core/paths.js';
 
 export interface QueryRecord {
   id: string;
@@ -83,7 +83,7 @@ export class QueryHistory {
     };
 
     this.queries.unshift(newRecord);
-    
+
     // Keep only last 1000 queries
     if (this.queries.length > 1000) {
       this.queries = this.queries.slice(0, 1000);
@@ -104,7 +104,7 @@ export class QueryHistory {
     await this.initialize();
     const lowerQuery = query.toLowerCase();
     return this.queries.filter(
-      (q) =>
+      q =>
         q.question.toLowerCase().includes(lowerQuery) ||
         q.answer.toLowerCase().includes(lowerQuery) ||
         q.notebookName.toLowerCase().includes(lowerQuery)
@@ -113,7 +113,7 @@ export class QueryHistory {
 
   async getById(id: string): Promise<QueryRecord | undefined> {
     await this.initialize();
-    return this.queries.find((q) => q.id === id);
+    return this.queries.find(q => q.id === id);
   }
 
   async exportToMarkdown(): Promise<string> {
@@ -130,7 +130,9 @@ export class QueryHistory {
     for (const query of this.queries) {
       const date = new Date(query.timestamp).toLocaleString();
       lines.push(`## ${query.question}`);
-      lines.push(`**Notebook:** ${query.notebookName} | **Date:** ${date} | **Duration:** ${query.duration}ms`);
+      lines.push(
+        `**Notebook:** ${query.notebookName} | **Date:** ${date} | **Duration:** ${query.duration}ms`
+      );
       lines.push('');
       lines.push(query.answer);
       lines.push('');
@@ -147,5 +149,5 @@ export class QueryHistory {
 }
 
 export function resetQueryHistory(): void {
-  QueryHistory.instance = null;
+  (QueryHistory as unknown as { instance: QueryHistory | null }).instance = null;
 }

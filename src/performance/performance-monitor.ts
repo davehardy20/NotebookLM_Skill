@@ -3,15 +3,15 @@
  * Tracks query timing, success rates, and performance metrics.
  */
 
-import { promises as fs } from 'fs';
-import { join } from 'path';
+import { promises as fs } from 'node:fs';
+import { join } from 'node:path';
 import { Paths } from '../core/paths.js';
 import {
-  QueryMetrics,
-  SessionMetrics,
-  PerformanceSummary,
-  QueryMetricsSchema,
+  type PerformanceSummary,
   PerformanceSummarySchema,
+  type QueryMetrics,
+  QueryMetricsSchema,
+  type SessionMetrics,
 } from '../types/performance.js';
 
 /**
@@ -86,7 +86,7 @@ export class PerformanceMonitor {
   };
 
   constructor(historySize?: number) {
-    this.historySize = historySize || PerformanceMonitor.DEFAULT_HISTORY_SIZE;
+    this.historySize = historySize ?? PerformanceMonitor.DEFAULT_HISTORY_SIZE;
     const paths = Paths.getInstance();
     this.metricsFilePath = join(paths.dataDir, PerformanceMonitor.METRICS_FILE);
     this.startTime = Date.now() / 1000;
@@ -132,11 +132,7 @@ export class PerformanceMonitor {
         savedAt: Date.now() / 1000,
       };
 
-      await fs.writeFile(
-        this.metricsFilePath,
-        JSON.stringify(data, null, 2),
-        'utf-8'
-      );
+      await fs.writeFile(this.metricsFilePath, JSON.stringify(data, null, 2), 'utf-8');
     } catch (error) {
       console.warn(
         `⚠️ Could not save metrics: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -189,13 +185,7 @@ export class PerformanceMonitor {
       notebookUrl?: string;
     } = {}
   ): Promise<void> {
-    const {
-      fromCache = false,
-      usePool = true,
-      success = true,
-      error,
-      notebookUrl,
-    } = options;
+    const { fromCache = false, usePool = true, success = true, error, notebookUrl } = options;
 
     this.counters.totalQueries += 1;
 
@@ -234,8 +224,8 @@ export class PerformanceMonitor {
       durationSeconds,
       fromCache,
       success,
-      errorType: error || null,
-      notebookUrl: notebookUrl || null,
+      errorType: error ?? null,
+      notebookUrl: notebookUrl ?? null,
     };
 
     const validated = QueryMetricsSchema.parse(metrics);
@@ -298,12 +288,9 @@ export class PerformanceMonitor {
   /**
    * Get the slowest queries
    */
-  getSlowQueries(
-    thresholdSeconds: number = 30,
-    count: number = 10
-  ): QueryMetrics[] {
+  getSlowQueries(thresholdSeconds: number = 30, count: number = 10): QueryMetrics[] {
     return this.queryHistory
-      .filter((q) => q.durationSeconds >= thresholdSeconds)
+      .filter(q => q.durationSeconds >= thresholdSeconds)
       .sort((a, b) => b.durationSeconds - a.durationSeconds)
       .slice(0, count);
   }
@@ -315,12 +302,8 @@ export class PerformanceMonitor {
     const summary = this.getSummary();
 
     let poolSpeedup = 0;
-    if (
-      this.counters.legacyQueries > 0 &&
-      this.counters.poolQueries > 0
-    ) {
-      const avgLegacy =
-        this.timing.legacyDuration / this.counters.legacyQueries;
+    if (this.counters.legacyQueries > 0 && this.counters.poolQueries > 0) {
+      const avgLegacy = this.timing.legacyDuration / this.counters.legacyQueries;
       const avgPool = this.timing.poolDuration / this.counters.poolQueries;
       poolSpeedup = ((avgLegacy - avgPool) / avgLegacy) * 100;
     }
@@ -330,8 +313,7 @@ export class PerformanceMonitor {
       const avgUncached =
         (this.timing.totalDuration - this.timing.cacheDuration) /
         Math.max(this.counters.totalQueries - this.counters.cachedQueries, 1);
-      const avgCache =
-        this.timing.cacheDuration / this.counters.cachedQueries;
+      const avgCache = this.timing.cacheDuration / this.counters.cachedQueries;
       timeSaved = this.counters.cachedQueries * (avgUncached - avgCache);
     }
 
@@ -354,8 +336,7 @@ export class PerformanceMonitor {
     console.log('\n🚀 Browser Pool Performance:');
     console.log(`  Pool queries: ${summary.poolQueries}`);
     console.log(`  Legacy queries: ${summary.legacyQueries}`);
-    const poolUsageRate =
-      (summary.poolQueries / Math.max(summary.totalQueries, 1)) * 100;
+    const poolUsageRate = (summary.poolQueries / Math.max(summary.totalQueries, 1)) * 100;
     console.log(`  Pool usage: ${poolUsageRate.toFixed(1)}%`);
     console.log(`  Session fallbacks: ${summary.sessionFallbacks}`);
     console.log(`  Pool speedup: ${poolSpeedup.toFixed(1)}%`);

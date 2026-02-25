@@ -7,14 +7,14 @@
  * Async-first implementation with Playwright.
  */
 
-import { createHash } from 'crypto';
+import { createHash } from 'node:crypto';
 import type { BrowserContext, Page } from 'playwright';
 import { chromium } from 'playwright';
+import { AuthError, BrowserError } from '../core/errors.js';
+import { createChildLogger } from '../core/logger.js';
+import { Paths } from '../core/paths.js';
 import { BrowserFactory, setupResourceBlocking } from './browser-utils.js';
 import { QUERY_INPUT_SELECTORS } from './selectors.js';
-import { Paths } from '../core/paths.js';
-import { createChildLogger } from '../core/logger.js';
-import { AuthError, BrowserError } from '../core/errors.js';
 
 const logger = createChildLogger('BrowserPool');
 
@@ -202,7 +202,7 @@ export class NotebookLMSession {
         });
         return;
       } catch {
-        continue;
+        /* continue to next selector */
       }
     }
 
@@ -579,30 +579,33 @@ export function setupCleanupHandlers(): void {
   });
 
   // Async cleanup on SIGINT (Ctrl+C)
-  process.on('SIGINT', async () => {
-    logger.info('Received SIGINT, cleaning up...');
-    await cleanup();
-    process.exit(0);
+  process.on('SIGINT', () => {
+    void (async () => {
+      logger.info('Received SIGINT, cleaning up...');
+      await cleanup();
+      process.exit(0);
+    })();
   });
 
   // Async cleanup on SIGTERM
-  process.on('SIGTERM', async () => {
-    logger.info('Received SIGTERM, cleaning up...');
-    await cleanup();
-    process.exit(0);
+  process.on('SIGTERM', () => {
+    void (async () => {
+      logger.info('Received SIGTERM, cleaning up...');
+      await cleanup();
+      process.exit(0);
+    })();
   });
 
   // Handle uncaught exceptions
-  process.on('uncaughtException', async error => {
+  process.on('uncaughtException', error => {
     logger.error('Uncaught exception', {
       error: error instanceof Error ? error.message : String(error),
     });
-    await cleanup();
-    process.exit(1);
+    void cleanup().then(() => process.exit(1));
   });
 
   // Handle unhandled rejections
-  process.on('unhandledRejection', async (reason, promise) => {
+  process.on('unhandledRejection', (reason, promise) => {
     const errorMessage =
       reason instanceof Error ? `${reason.message}\n${reason.stack}` : String(reason);
     logger.error('Unhandled rejection', {
@@ -611,8 +614,7 @@ export function setupCleanupHandlers(): void {
       promise: String(promise),
     });
     console.error('Unhandled Rejection:', errorMessage);
-    await cleanup();
-    process.exit(1);
+    void cleanup().then(() => process.exit(1));
   });
 
   logger.debug('Cleanup handlers registered');

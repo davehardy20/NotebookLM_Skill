@@ -4,20 +4,20 @@
  * Async-first implementation with Playwright
  */
 
-import { readFile, writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
-import { join, dirname } from 'path';
-import type { BrowserContext, Page, Route, Request, BrowserType } from 'playwright';
+import { existsSync } from 'node:fs';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import type { BrowserContext, BrowserType, Page, Request, Route } from 'playwright';
+import { parseStateData } from '../core/crypto.js';
 import { BrowserError, TimeoutError } from '../core/errors.js';
 import { createChildLogger } from '../core/logger.js';
-import { parseStateData } from '../core/crypto.js';
 import {
-  BLOCKED_PATTERNS,
   ALWAYS_BLOCKED_RESOURCE_TYPES,
+  BLOCKED_PATTERNS,
   BROWSER_ARGS,
-  USER_AGENT,
-  THINKING_SELECTOR,
   RESPONSE_SELECTORS,
+  THINKING_SELECTOR,
+  USER_AGENT,
 } from './selectors.js';
 
 const logger = createChildLogger('BrowserUtils');
@@ -163,7 +163,7 @@ export class BrowserFactory {
 export function setupResourceBlocking(page: Page): void {
   logger.debug('Setting up resource blocking');
 
-  page.route('**/*', (route: Route, request: Request) => {
+  void page.route('**/*', (route: Route, request: Request) => {
     const resourceType = request.resourceType();
 
     // Always block these resource types
@@ -172,7 +172,7 @@ export function setupResourceBlocking(page: Page): void {
         resourceType as (typeof ALWAYS_BLOCKED_RESOURCE_TYPES)[number]
       )
     ) {
-      route.abort();
+      void route.abort();
       return;
     }
 
@@ -181,13 +181,13 @@ export function setupResourceBlocking(page: Page): void {
     for (const pattern of BLOCKED_PATTERNS) {
       const patternWithoutWildcard = pattern.replace('**/', '');
       if (url.includes(patternWithoutWildcard) || url.endsWith(patternWithoutWildcard)) {
-        route.abort();
+        void route.abort();
         return;
       }
     }
 
     // Allow everything else
-    route.continue();
+    void route.continue();
   });
 
   logger.debug('Resource blocking configured');
@@ -201,10 +201,10 @@ export function setupMinimalBlocking(page: Page): void {
   logger.debug('Setting up minimal resource blocking');
 
   // Block common image formats
-  page.route('**/*.{png,jpg,jpeg,gif,webp,svg}', route => route.abort());
+  void page.route('**/*.{png,jpg,jpeg,gif,webp,svg}', route => void route.abort());
 
   // Block font files
-  page.route('**/*.{woff,woff2,ttf,otf}', route => route.abort());
+  void page.route('**/*.{woff,woff2,ttf,otf}', route => void route.abort());
 
   logger.debug('Minimal blocking configured');
 }
@@ -256,7 +256,7 @@ export async function waitForResponseOptimized(
 
     // Check if still thinking (fast path)
     try {
-      const thinking = await page.locator(thinkingSelector).first();
+      const thinking = page.locator(thinkingSelector).first();
       const isVisible = await thinking.isVisible().catch(() => false);
       if (isVisible) {
         // Still thinking, increase interval slowly
@@ -271,7 +271,7 @@ export async function waitForResponseOptimized(
     try {
       const responses = await page.locator(responseSelector).all();
       if (responses.length > 0) {
-        const latestText = (await responses[responses.length - 1].textContent())?.trim() || '';
+        const latestText = (await responses[responses.length - 1].textContent())?.trim() ?? '';
 
         if (latestText && latestText !== previousAnswer) {
           if (latestText === lastCandidate) {

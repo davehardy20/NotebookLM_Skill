@@ -4,10 +4,14 @@
  * Ported from Python notebook_manager.py
  */
 
-import { promises as fs } from 'fs';
-import { Paths } from '../core/paths.js';
-import { Notebook, NotebookLibraryData, NotebookLibraryDataSchema } from '../types/notebook.js';
+import { promises as fs } from 'node:fs';
 import { logger } from '../core/logger.js';
+import { Paths } from '../core/paths.js';
+import {
+  type Notebook,
+  type NotebookLibraryData,
+  NotebookLibraryDataSchema,
+} from '../types/notebook.js';
 
 /**
  * Manages a collection of NotebookLM notebooks with metadata
@@ -112,11 +116,11 @@ export class NotebookLibrary {
       .replace(/_/g, '-')
       .replace(/[^a-z0-9-]/g, '');
 
-    if (this.notebooks.has(notebookId)) {
-      const existing = this.notebooks.get(notebookId)!;
+    const existingNotebook = this.notebooks.get(notebookId);
+    if (existingNotebook) {
       throw new Error(
         `Notebook '${name}' (ID: ${notebookId}) already exists. ` +
-          `Current URL: ${existing.url}. ` +
+          `Current URL: ${existingNotebook.url}. ` +
           `Use 'notebooklm notebook list' to see all notebooks or 'notebooklm notebook remove ${notebookId}' to replace it.`
       );
     }
@@ -128,9 +132,9 @@ export class NotebookLibrary {
       name,
       description,
       topics,
-      contentTypes: contentTypes || [],
-      useCases: useCases || [],
-      tags: tags || [],
+      contentTypes: contentTypes ?? [],
+      useCases: useCases ?? [],
+      tags: tags ?? [],
       createdAt: now,
       updatedAt: now,
       useCount: 0,
@@ -325,7 +329,9 @@ export class NotebookLibrary {
     let maxUseCount = 0;
 
     for (const notebook of Array.from(this.notebooks.values())) {
-      notebook.topics.forEach((topic: string) => totalTopics.add(topic));
+      for (const topic of notebook.topics) {
+        totalTopics.add(topic);
+      }
       totalUseCount += notebook.useCount;
 
       if (notebook.useCount > maxUseCount) {

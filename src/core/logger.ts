@@ -3,7 +3,13 @@
  * Pretty printing in development, JSON in production
  */
 
-import { pino as createPino, type Logger, type LoggerOptions, stdTimeFunctions, destination } from 'pino';
+import {
+  pino as createPino,
+  destination,
+  type Logger,
+  type LoggerOptions,
+  stdTimeFunctions,
+} from 'pino';
 import { getConfig } from './config.js';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -18,7 +24,9 @@ function createLogger(): Logger {
   };
 
   // Skip pino-pretty transport in pkg binary (transports don't work with pkg)
-  const isPkg = !!(process as any).pkg || process.execPath !== process.argv[0];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isPkg =
+    !!(process as unknown as { pkg?: unknown }).pkg || process.execPath !== process.argv[0];
 
   if (isDev && !isPkg) {
     return createPino(

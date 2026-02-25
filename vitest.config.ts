@@ -9,26 +9,19 @@ export default defineConfig({
       '**/node_modules/**',
       '**/dist/**',
       '**/.{idea,git,cache,output,temp}/**',
-      '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*'
+      '**/{karma,rollup,webpack,vite,vitest,jest,ava,babel,nyc,cypress,tsup,build}.config.*',
     ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'dist/',
-        'tests/',
-        '**/*.d.ts',
-        '**/*.config.ts',
-        '**/types/**'
-      ],
+      exclude: ['node_modules/', 'dist/', 'tests/', '**/*.d.ts', '**/*.config.ts', '**/types/**'],
       thresholds: {
         lines: 80,
         functions: 80,
         branches: 70,
-        statements: 80
-      }
-    }
+        statements: 80,
+      },
+    },
   },
   resolve: {
     alias: {
@@ -39,7 +32,7 @@ export default defineConfig({
       '@notebook': './src/notebook',
       '@cache': './src/cache',
       '@performance': './src/performance',
-      '@commands': './src/commands'
-    }
-  }
+      '@commands': './src/commands',
+    },
+  },
 });

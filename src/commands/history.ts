@@ -3,12 +3,12 @@
  * CLI commands for managing query history
  */
 
-import { Command } from 'commander';
 import chalk from 'chalk';
-import { QueryHistory, resetQueryHistory } from '../history/query-history.js';
-import { askNotebookLM } from '../ask.js';
-import { getNotebookLibrary } from '../notebook/notebook-manager.js';
+import type { Command } from 'commander';
 import ora from 'ora';
+import { askNotebookLM } from '../ask.js';
+import { QueryHistory, resetQueryHistory } from '../history/query-history.js';
+import { getNotebookLibrary } from '../notebook/notebook-manager.js';
 
 /**
  * Add the 'history' command to the CLI program
@@ -101,12 +101,12 @@ async function handleListCommand(limit: number): Promise<void> {
   for (const query of queries) {
     const date = new Date(query.timestamp).toLocaleString();
     const cacheIndicator = query.fromCache ? chalk.gray(' [cache]') : '';
-    
+
     console.log(`${chalk.cyan(query.id)} ${chalk.gray(date)}${cacheIndicator}`);
     console.log(`  ${chalk.bold('Q:')} ${query.question}`);
     console.log(`  ${chalk.gray('Notebook:')} ${query.notebookName}`);
     console.log(`  ${chalk.gray('Duration:')} ${query.duration}ms`);
-    
+
     // Show first 100 chars of answer
     const preview = query.answer.substring(0, 100).replace(/\n/g, ' ');
     const ellipsis = query.answer.length > 100 ? '...' : '';
@@ -134,7 +134,7 @@ async function handleSearchCommand(queryStr: string): Promise<void> {
   for (const query of results) {
     const date = new Date(query.timestamp).toLocaleString();
     const cacheIndicator = query.fromCache ? chalk.gray(' [cache]') : '';
-    
+
     console.log(`${chalk.cyan(query.id)} ${chalk.gray(date)}${cacheIndicator}`);
     console.log(`  ${chalk.bold('Q:')} ${query.question}`);
     console.log(`  ${chalk.gray('Notebook:')} ${query.notebookName}`);
@@ -215,7 +215,7 @@ async function handleExportCommand(outputPath?: string): Promise<void> {
   const markdown = await history.exportToMarkdown();
 
   if (outputPath) {
-    const fs = await import('fs/promises');
+    const fs = await import('node:fs/promises');
     await fs.writeFile(outputPath, markdown, 'utf-8');
     console.log(chalk.green(`\n✓ Exported history to ${outputPath}\n`));
   } else {
@@ -241,14 +241,14 @@ async function handleClearCommand(force?: boolean): Promise<void> {
     console.log(chalk.yellow('\n⚠️  This will permanently delete all query history.'));
     console.log(chalk.gray('   Use --force to skip this confirmation.\n'));
 
-    const readline = await import('readline');
+    const readline = await import('node:readline');
     const rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
     });
 
-    const answer = await new Promise<string>((resolve) => {
-      rl.question('Are you sure you want to continue? (yes/no): ', (ans) => {
+    const answer = await new Promise<string>(resolve => {
+      rl.question('Are you sure you want to continue? (yes/no): ', ans => {
         rl.close();
         resolve(ans.toLowerCase());
       });
@@ -263,14 +263,13 @@ async function handleClearCommand(force?: boolean): Promise<void> {
   const spinner = ora('Clearing history...').start();
 
   try {
-    const fs = await import('fs/promises');
-    const pathModule = await import('path');
+    const fs = await import('node:fs/promises');
+    const pathModule = await import('node:path');
     const { Paths } = await import('../core/paths.js');
 
     const historyFile = pathModule.join(Paths.getInstance().dataDir, 'query_history.json');
 
-    await fs.unlink(historyFile).catch(() => {
-    });
+    await fs.unlink(historyFile).catch(() => {});
 
     resetQueryHistory();
 

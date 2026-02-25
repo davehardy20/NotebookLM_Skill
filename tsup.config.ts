@@ -11,16 +11,13 @@ export default defineConfig({
   dts: true,
   minify: false,
   outDir: 'dist',
-  external: [
-    'playwright',
-    'playwright-core'
-  ],
+  external: ['playwright', 'playwright-core'],
   banner: {
-    js: '#!/usr/bin/env node'
+    js: '#!/usr/bin/env node',
   },
   esbuildOptions(options) {
     options.banner = {
-      js: '#!/usr/bin/env node'
+      js: '#!/usr/bin/env node',
     };
-  }
+  },
 });

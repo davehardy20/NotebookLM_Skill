@@ -3,12 +3,12 @@
  * Query multiple notebooks simultaneously and aggregate results
  */
 
+import chalk from 'chalk';
+import ora from 'ora';
 import { askNotebookLM } from './ask.js';
-import { getNotebookLibrary } from './notebook/notebook-manager.js';
 import { config } from './core/config.js';
 import { ValidationError } from './core/errors.js';
-import ora from 'ora';
-import chalk from 'chalk';
+import { getNotebookLibrary } from './notebook/notebook-manager.js';
 
 export interface ParallelQueryResult {
   notebookId: string;
@@ -67,11 +67,9 @@ export async function queryMultipleNotebooks(
     }).start();
 
     try {
-      const result = await askNotebookLM({
-        question,
-        notebookUrl: notebook.url,
+      const result = await askNotebookLM(question, notebook.url, {
         useCache: options.useCache ?? true,
-        usePool: options.usePool ?? true,
+        useSessionPool: options.usePool ?? true,
       });
 
       const duration = Date.now() - startTime;
@@ -157,7 +155,7 @@ export function formatParallelResults(results: ParallelQueryResult[]): string {
       lines.push(chalk.gray(`⏱️  ${result.duration}ms\n`));
     } else {
       lines.push(chalk.red(`## ${result.notebookName}`));
-      lines.push(chalk.red(`⚠️  Failed: ${result.error || 'Unknown error'}`));
+      lines.push(chalk.red(`⚠️  Failed: ${result.error ?? 'Unknown error'}`));
       lines.push('');
     }
   }
