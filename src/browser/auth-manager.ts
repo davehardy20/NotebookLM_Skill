@@ -1,7 +1,6 @@
 /**
  * Authentication Manager for NotebookLM TypeScript Skill
  * Handles Google login and browser state persistence
- * Based on the MCP server implementation
  *
  * Implements hybrid auth approach:
  * - Persistent browser profile (userDataDir) for fingerprint consistency

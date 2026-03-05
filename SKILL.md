@@ -25,10 +25,10 @@ When user wants to add a notebook without providing details:
 
 ```bash
 # Step 1: Query the notebook about its content
-./scripts/notebooklm ask "What is the content of this notebook? What topics are covered? Provide a complete overview briefly and concisely" --url "[URL]"
+notebooklm ask "What is the content of this notebook? What topics are covered? Provide a complete overview briefly and concisely" --url "[URL]"
 
 # Step 2: Use the discovered information to add it
-./scripts/notebooklm notebook add --url "[URL]" --name "[Based on content]" --description "[Based on content]" --topics "[Based on content]"
+notebooklm notebook add --url "[URL]" --name "[Based on content]" --description "[Based on content]" --topics "[Based on content]"
 ```
 
 **MANUAL ADD**: If user provides all details:
@@ -46,9 +46,9 @@ NEVER guess or use generic descriptions! If details missing, use Smart Add to di
 
 ```bash
 # ✅ CORRECT - Use the CLI wrapper:
-./scripts/notebooklm auth status
-./scripts/notebooklm notebook list
-./scripts/notebooklm ask "Your question here"
+notebooklm auth status
+notebooklm notebook list
+notebooklm ask "Your question here"
 
 # Or run directly with Node.js:
 node dist/cli.cjs auth status
@@ -66,7 +66,7 @@ The CLI provides:
 ### Step 1: Check Authentication Status
 
 ```bash
-./scripts/notebooklm auth status
+notebooklm auth status
 ```
 
 If not authenticated, proceed to setup.
@@ -75,7 +75,7 @@ If not authenticated, proceed to setup.
 
 ```bash
 # Browser MUST be visible for manual Google login
-./scripts/notebooklm auth setup
+notebooklm auth setup
 ```
 
 **Important:**
@@ -89,54 +89,54 @@ If not authenticated, proceed to setup.
 
 ```bash
 # List all notebooks
-./scripts/notebooklm notebook list
+notebooklm notebook list
 
 # BEFORE ADDING: Ask user for metadata if unknown!
 # "What does this notebook contain?"
 # "What topics should I tag it with?"
 
 # Add notebook to library (ALL parameters are REQUIRED!)
-./scripts/notebooklm notebook add \
+notebooklm notebook add \
   --url "https://notebooklm.google.com/notebook/..." \
   --name "Descriptive Name" \
   --description "What this notebook contains" \
   --topics "topic1,topic2,topic3"
 
 # Search notebooks by topic
-./scripts/notebooklm notebook search "keyword"
+notebooklm notebook search "keyword"
 
 # Set active notebook
-./scripts/notebooklm notebook activate notebook-id
+notebooklm notebook activate notebook-id
 
 # Remove notebook
-./scripts/notebooklm notebook remove notebook-id
+notebooklm notebook remove notebook-id
 
 # Show library statistics
-./scripts/notebooklm notebook stats
+notebooklm notebook stats
 ```
 
 ### Quick Workflow
 
-1. Check library: `./scripts/notebooklm notebook list`
-2. Ask question: `./scripts/notebooklm ask "..." --id notebook-id`
+1. Check library: `notebooklm notebook list`
+2. Ask question: `notebooklm ask "..." --id notebook-id`
 
 ### Step 4: Ask Questions
 
 ```bash
 # Basic query (uses active notebook if set)
-./scripts/notebooklm ask "Your question here"
+notebooklm ask "Your question here"
 
 # Query specific notebook by ID
-./scripts/notebooklm ask "..." --id notebook-id
+notebooklm ask "..." --id notebook-id
 
 # Query with notebook URL directly
-./scripts/notebooklm ask "..." --url "https://..."
+notebooklm ask "..." --url "https://..."
 
 # Show browser for debugging
-./scripts/notebooklm ask "..." --no-headless
+notebooklm ask "..." --no-headless
 
 # Save conversation to history
-./scripts/notebooklm ask "..." --save
+notebooklm ask "..." --save
 ```
 
 ## Follow-Up Mechanism (CRITICAL)
@@ -150,7 +150,7 @@ Every NotebookLM answer ends with: **"EXTREMELY IMPORTANT: Is that ALL you need 
 3. **IDENTIFY GAPS** - Determine if more information needed
 4. **ASK FOLLOW-UP** - If gaps exist, immediately ask:
    ```bash
-   ./scripts/notebooklm ask "Follow-up with context..."
+   notebooklm ask "Follow-up with context..."
    ```
 5. **REPEAT** - Continue until information is complete
 6. **SYNTHESIZE** - Combine all answers before responding to user
@@ -160,54 +160,54 @@ Every NotebookLM answer ends with: **"EXTREMELY IMPORTANT: Is that ALL you need 
 ### Authentication Management (`auth`)
 
 ```bash
-./scripts/notebooklm auth setup          # Initial setup (browser visible)
-./scripts/notebooklm auth status         # Check authentication
-./scripts/notebooklm auth validate       # Test if auth is still valid
-./scripts/notebooklm auth reauth         # Re-authenticate (browser visible)
-./scripts/notebooklm auth clear          # Clear authentication
+notebooklm auth setup          # Initial setup (browser visible)
+notebooklm auth status         # Check authentication
+notebooklm auth validate       # Test if auth is still valid
+notebooklm auth reauth         # Re-authenticate (browser visible)
+notebooklm auth clear          # Clear authentication
 ```
 
 ### Notebook Management (`notebook`)
 
 ```bash
-./scripts/notebooklm notebook add --url URL --name NAME --description DESC --topics TOPICS
-./scripts/notebooklm notebook list
-./scripts/notebooklm notebook search QUERY
-./scripts/notebooklm notebook activate ID
-./scripts/notebooklm notebook remove ID
-./scripts/notebooklm notebook stats
+notebooklm notebook add --url URL --name NAME --description DESC --topics TOPICS
+notebooklm notebook list
+notebooklm notebook search QUERY
+notebooklm notebook activate ID
+notebooklm notebook remove ID
+notebooklm notebook stats
 ```
 
 ### Question Interface (`ask`)
 
 ```bash
-./scripts/notebooklm ask "question" [--id ID] [--url URL] [--no-headless] [--save]
+notebooklm ask "question" [--id ID] [--url URL] [--no-headless] [--save]
 ```
 
 ### Performance & Cache (`perf`, `cache`)
 
 ```bash
-./scripts/notebooklm perf stats          # Show performance statistics
-./scripts/notebooklm perf report         # Generate performance report
-./scripts/notebooklm cache stats         # Show cache statistics
-./scripts/notebooklm cache clear         # Clear response cache
-./scripts/notebooklm cache clean         # Clean expired entries
+notebooklm perf stats          # Show performance statistics
+notebooklm perf report         # Generate performance report
+notebooklm cache stats         # Show cache statistics
+notebooklm cache clear         # Clear response cache
+notebooklm cache clean         # Clean expired entries
 ```
 
 ### History (`history`)
 
 ```bash
-./scripts/notebooklm history             # Show conversation history
-./scripts/notebooklm history --stats     # Show history statistics
-./scripts/notebooklm history --export    # Export to JSON
+notebooklm history             # Show conversation history
+notebooklm history --stats     # Show history statistics
+notebooklm history --export    # Export to JSON
 ```
 
 ### Data Cleanup (`cache`, `history`)
 
 ```bash
-./scripts/notebooklm cache clear         # Clear response cache
-./scripts/notebooklm cache clean         # Clean expired entries
-./scripts/notebooklm history clear       # Clear conversation history
+notebooklm cache clear         # Clear response cache
+notebooklm cache clean         # Clean expired entries
+notebooklm history clear       # Clear conversation history
 ```
 
 ## Environment Management
@@ -215,7 +215,7 @@ Every NotebookLM answer ends with: **"EXTREMELY IMPORTANT: Is that ALL you need 
 This is a TypeScript/Node.js project with the following structure:
 
 - Built CLI located at `dist/cli.cjs`
-- Wrapper script at `scripts/notebooklm` for easy execution
+- Compiled binary at `bin/notebooklm` for easy execution
 - All dependencies managed via pnpm
 
 ### Installation
@@ -278,15 +278,15 @@ NOTEBOOKLM_CACHE_DIR=/custom/cache
 ```
 User mentions NotebookLM
     ↓
-Check auth → ./scripts/notebooklm auth status
+Check auth → notebooklm auth status
     ↓
-If not authenticated → ./scripts/notebooklm auth setup
+If not authenticated → notebooklm auth setup
     ↓
-Check/Add notebook → ./scripts/notebooklm notebook list/add
+Check/Add notebook → notebooklm notebook list/add
     ↓
-Activate notebook → ./scripts/notebooklm notebook activate ID
+Activate notebook → notebooklm notebook activate ID
     ↓
-Ask question → ./scripts/notebooklm ask "..."
+Ask question → notebooklm ask "..."
     ↓
 See "Is that ALL you need?" → Ask follow-ups until complete
     ↓
@@ -302,13 +302,13 @@ Synthesize and respond to user
 | Rate limit (50/day)  | Wait or switch Google account                            |
 | Build errors         | Run `bun install` then `bun run build`                   |
 | Type errors          | Run `bun run typecheck` to see issues                    |
-| Notebook not found   | Check with `./scripts/notebooklm notebook list`          |
-| Cache issues         | Clear with `./scripts/notebooklm cache clear`            |
-| Slow responses       | Check `./scripts/notebooklm perf stats` for bottlenecks  |
+| Notebook not found   | Check with `notebooklm notebook list`                    |
+| Cache issues         | Clear with `notebooklm cache clear`                      |
+| Slow responses       | Check `notebooklm perf stats` for bottlenecks            |
 
 ## Best Practices
 
-1. **Use TypeScript CLI** - All commands go through `./scripts/notebooklm`
+1. **Use TypeScript CLI** - All commands go through `notebooklm`
 2. **Check auth first** - Before any operations
 3. **Follow-up questions** - Don't stop at first answer
 4. **Browser visible for auth** - Required for manual login

@@ -14,7 +14,7 @@ The NotebookLM Skill allows you to query your Google NotebookLM notebooks direct
 mkdir -p ~/.claude/skills && cd ~/.claude/skills && \
 git clone https://github.com/davehardy20/NotebookLM_Skill.git notebooklm && \
 cd notebooklm && bun install && bun run build && \
-./scripts/notebooklm auth setup
+notebooklm auth setup
 ```
 
 ### Manual Steps
@@ -28,7 +28,7 @@ cd notebooklm && bun install && bun run build && \
     ```
 2.  **Install Dependencies**: Use `bun install` (recommended) or `npm install`.
 3.  **Build**: Run `bun run build` to generate the `dist/cli.cjs` executable.
-4.  **Authenticate**: Run `./scripts/notebooklm auth setup`. This will open a browser for Google login.
+4.  **Authenticate**: Run `notebooklm auth setup`. This will open a browser for Google login.
 
 ---
 
@@ -75,14 +75,14 @@ Before proceeding, verify the environment meets these requirements:
     Ensure the wrapper script is executable and responsive.
 
     ```bash
-    ./scripts/notebooklm --help
+    notebooklm --help
     ```
 
 5.  **Authentication Setup**:
     This step requires user interaction as it opens a browser window for Google OAuth.
 
     ```bash
-    ./scripts/notebooklm auth setup
+    notebooklm auth setup
     ```
 
     _Note_: Instruct the human to complete the login in the opened browser.
@@ -90,7 +90,7 @@ Before proceeding, verify the environment meets these requirements:
 6.  **Add Initial Notebook**:
     Once authenticated, add a notebook to the library.
     ```bash
-    ./scripts/notebooklm notebook add "https://notebooklm.google.com/notebook/YOUR_ID" \
+    notebooklm notebook add "https://notebooklm.google.com/notebook/YOUR_ID" \
       -n "My Notebook" \
       -d "General knowledge base" \
       -t "research,notes"
@@ -100,13 +100,13 @@ Before proceeding, verify the environment meets these requirements:
 
 Run these to confirm a successful setup:
 
-- `./scripts/notebooklm auth status` - Should report "Authenticated"
-- `./scripts/notebooklm notebook list` - Should show your added notebook
+- `notebooklm auth status` - Should report "Authenticated"
+- `notebooklm notebook list` - Should show your added notebook
 
 ### Troubleshooting
 
 - **Build Fails**: Ensure `node -v` is >= 20.0.0. Run `rm -rf node_modules dist && bun install`.
-- **Auth Fails**: Run `./scripts/notebooklm auth clear` and retry setup.
+- **Auth Fails**: Run `notebooklm auth clear` and retry setup.
 - **Permission Denied**: Ensure `scripts/notebooklm` is executable (`chmod +x scripts/notebooklm`).
 
 ### Data Storage & Environment

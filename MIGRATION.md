@@ -35,10 +35,10 @@ bun run build:binary
 
 ```bash
 # Option 1: Add to PATH
-export PATH="$PATH:/path/to/notebooklm-ts/scripts"
+export PATH="$PATH:/path/to/notebooklm-ts/bin"
 
 # Option 2: Create symlink
-ln -s /path/to/notebooklm-ts/scripts/notebooklm /usr/local/bin/notebooklm
+ln -s /path/to/notebooklm-ts/bin/notebooklm /usr/local/bin/notebooklm
 
 # Option 3: Use npx (if published to npm)
 npx notebooklm --version
@@ -211,7 +211,7 @@ notebooklm auth setup
 Both Python and TypeScript versions use the same file locations:
 
 - Data: `~/.claude/skills/notebooklm/data/`
-- Binary: `~/.claude/skills/notebooklm/scripts/`
+- Binary: `~/.claude/skills/notebooklm/bin/`
 
 No changes needed to your existing setup.
 
@@ -247,11 +247,11 @@ python run.py notebook list # Verify data is present
 ### Issue: Binary not found
 
 ```bash
-# Check if binary exists (in scripts folder)
-ls -la scripts/notebooklm
+# Check if binary exists (in bin folder)
+ls -la bin/notebooklm
 
 # Make executable
-chmod +x scripts/notebooklm
+chmod +x bin/notebooklm
 
 # Or use node directly
 node dist/cli.cjs --version

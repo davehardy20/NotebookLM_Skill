@@ -1,16 +1,16 @@
-# notebooklm-ts - NotebookLM MCP Server
+# notebooklm-ts - NotebookLM CLI Tool
 
 **Generated:** 2026-02-19  
-**Repository:** https://github.com/davehardy20/notebooklm-ts.git  
+**Repository:** https://github.com/davehardy20/NotebookLM_Skill.git  
 **Language:** TypeScript  
 **Runtime:** Bun/Node.js  
-**Type:** Model Context Protocol (MCP) Server
+**Type:** Claude Code Skill / CLI Tool
 
 ---
 
 ## OVERVIEW
 
-TypeScript-based MCP (Model Context Protocol) server for Google NotebookLM integration. Enables programmatic access to NotebookLM notebooks, sources, and queries directly from Claude Code and other MCP clients.
+TypeScript-based CLI tool for Google NotebookLM integration. Enables querying NotebookLM notebooks directly from the command line with browser automation via Playwright. Provides persistent authentication, notebook library management, response caching, and performance monitoring.
 
 ---
 
@@ -19,15 +19,36 @@ TypeScript-based MCP (Model Context Protocol) server for Google NotebookLM integ
 ```
 .
 ├── src/
-│   ├── index.ts            # Main entry point
-│   ├── server.ts           # MCP server implementation
-│   ├── notebooklm-client.ts # NotebookLM API client
-│   ├── types.ts            # TypeScript type definitions
-│   └── utils.ts            # Utility functions
-├── dist/                   # Compiled output
+│   ├── cli.ts              # CLI entry point (Commander.js)
+│   ├── index.ts            # Main exports for programmatic API
+│   ├── ask.ts              # Core query functionality
+│   ├── browser/            # Browser automation (Playwright)
+│   │   ├── auth-manager.ts # Authentication handling
+│   │   ├── browser-pool.ts # Session pooling for performance
+│   │   └── browser-utils.ts # Browser utilities
+│   ├── commands/           # CLI command handlers
+│   │   ├── auth.ts         # Authentication commands
+│   │   ├── notebook.ts     # Notebook management
+│   │   ├── ask.ts          # Query commands
+│   │   ├── cache.ts        # Cache management
+│   │   ├── perf.ts         # Performance monitoring
+│   │   └── history.ts      # Query history
+│   ├── core/               # Core utilities
+│   │   ├── config.ts       # Configuration management
+│   │   ├── errors.ts       # Error classes
+│   │   ├── logger.ts       # Logging utilities
+│   │   └── paths.ts        # Path resolution (XDG compliant)
+│   ├── notebook/           # Notebook library management
+│   ├── cache/              # Response caching
+│   ├── performance/        # Performance monitoring
+│   └── types/              # TypeScript type definitions
+├── bin/                    # Compiled binaries (gitignored)
+├── dist/                   # Compiled JavaScript output
 ├── tests/                  # Test suite
 ├── package.json
 ├── tsconfig.json
+├── SKILL.md                # Claude Code skill instructions
+├── COMMANDS.md             # Complete command reference
 └── README.md
 ```
 
@@ -35,31 +56,50 @@ TypeScript-based MCP (Model Context Protocol) server for Google NotebookLM integ
 
 ## WHERE TO LOOK
 
-| Task | Location | Notes |
-|------|----------|-------|
-| **MCP server setup** | `src/server.ts` | Implements MCP protocol |
-| **NotebookLM API** | `src/notebooklm-client.ts` | Google API integration |
-| **Type definitions** | `src/types.ts` | Interface definitions |
-| **Build output** | `dist/` | Compiled JavaScript |
+| Task                   | Location                           | Notes                      |
+| ---------------------- | ---------------------------------- | -------------------------- |
+| **CLI entry**          | `src/cli.ts`                       | Commander.js CLI setup     |
+| **Core query**         | `src/ask.ts`                       | Main query logic           |
+| **Browser automation** | `src/browser/`                     | Playwright integration     |
+| **Authentication**     | `src/browser/auth-manager.ts`      | Google auth handling       |
+| **Notebook mgmt**      | `src/notebook/notebook-manager.ts` | Library operations         |
+| **Cache**              | `src/cache/response-cache.ts`      | Response caching           |
+| **Build output**       | `dist/`                            | Compiled JavaScript        |
+| **Binary**             | `bin/notebooklm`                   | Compiled standalone binary |
 
 ---
 
 ## CONVENTIONS
 
-### MCP Protocol Implementation
-- Follows Model Context Protocol specification
-- Exposes tools for notebook operations
-- Supports resource-based access to notebooks
+### CLI Architecture
+
+- Single unified CLI using Commander.js
+- Subcommand structure: `notebooklm <command> <subcommand>`
+- Consistent error handling with structured error classes
+- Progress indicators using `ora` for long-running operations
+- Colored output using `chalk`
+
+### Browser Automation
+
+- Playwright for browser control
+- Persistent context for session reuse
+- Resource blocking for performance
+- Stealth measures to avoid detection
+- Automatic cleanup on exit (SIGINT, SIGTERM)
 
 ### TypeScript Patterns
+
 - Strict TypeScript configuration
 - Explicit return types on public functions
 - Interface-driven development
+- Zod schemas for runtime validation
 
-### API Client Pattern
-- Singleton client for NotebookLM API
-- Authentication via environment variables
-- Rate limiting and retry logic
+### Data Storage
+
+- XDG Base Directory specification compliant
+- Secure file permissions (700/600 on Unix)
+- Optional AES-256-GCM encryption for sensitive data
+- JSON-based storage for library, cache, and history
 
 ---
 
@@ -68,6 +108,8 @@ TypeScript-based MCP (Model Context Protocol) server for Google NotebookLM integ
 - **NEVER** commit API keys or credentials
 - **NEVER** use `any` type without justification
 - **NEVER** skip error handling for API calls
+- **NEVER** run with sudo/root privileges
+- **NEVER** store encryption keys in version control
 
 ---
 
@@ -77,41 +119,66 @@ TypeScript-based MCP (Model Context Protocol) server for Google NotebookLM integ
 # Install dependencies
 bun install
 
-# Build
-bun build
+# Build TypeScript
+bun run build
+
+# Build standalone binary
+bun run build:binary
 
 # Run tests
 bun test
 
-# Start MCP server
-bun run start
-
 # Development mode with hot reload
 bun run dev
+
+# CLI commands (after adding to PATH)
+notebooklm --help
+notebooklm auth setup
+notebooklm notebook list
+notebooklm ask "Your question"
 ```
 
 ---
 
 ## NOTES
 
-### MCP Tools Exposed
-- Query notebooks
-- List sources
-- Add/remove sources
-- Generate audio overviews
+### CLI Commands
+
+- `auth` - Authentication management (setup, status, validate, clear)
+- `notebook` - Notebook library management (add, list, search, activate, remove)
+- `ask` - Query notebooks with questions
+- `cache` - Cache management (stats, clear, clean)
+- `perf` - Performance monitoring (stats, report)
+- `history` - Query history tracking
 
 ### Environment Variables
-- `NOTEBOOKLM_API_KEY` - Google API authentication
-- `MCP_TRANSPORT` - Transport type (stdio/sse)
+
+- `NOTEBOOKLM_LOG_LEVEL` - Logging level (debug, info, warn, error)
+- `NOTEBOOKLM_SKILL_DIR` - Custom skill directory
+- `NOTEBOOKLM_DATA_DIR` - Custom data directory
+- `STATE_ENCRYPTION_KEY` - Encryption key for browser state (32+ chars)
+- `MAX_PARALLEL_QUERIES` - Limit concurrent queries (default: 10)
+
+### Data Locations
+
+Default: `~/.claude/skills/notebooklm/data/`
+
+- `library.json` - Notebook library
+- `auth_info.json` - Authentication metadata
+- `browser_state/` - Browser session data
+- `response_cache.json` - Cached responses
+- `history.json` - Query history
+- `logs/` - Application logs
 
 ### Integration
-Works with Claude Code, OpenCode, and any MCP-compatible client.
 
+Works with Claude Code via SKILL.md instructions. Can also be used standalone from any terminal.
 
+---
 
 ## Session Completion Protocol (NON-NEGOTIABLE)
 
-**When ending a work session**, you MUST complete ALL steps below. 
+**When ending a work session**, you MUST complete ALL steps below.
 
 **MANDATORY WORKFLOW:**
 
@@ -120,6 +187,9 @@ Works with Claude Code, OpenCode, and any MCP-compatible client.
 3. **Update issue status** - Close finished work, update in-progress items
 
    ```
+
+   ```
+
 4. **PUSH TO REMOTE** - This is MANDATORY:
    ```bash
    git pull --rebase
@@ -127,13 +197,13 @@ Works with Claude Code, OpenCode, and any MCP-compatible client.
    git push
    git status  # MUST show "up to date with origin"
    ```
-6. **Clean up** - Clear stashes, prune remote branches
-7. **Verify** - All changes committed AND pushed
-8. **Hand off** - Provide context for next session
-9. Work is NOT complete until `git push` succeeds.
-
+5. **Clean up** - Clear stashes, prune remote branches
+6. **Verify** - All changes committed AND pushed
+7. **Hand off** - Provide context for next session
+8. Work is NOT complete until `git push` succeeds.
 
 **CRITICAL RULES:**
+
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds

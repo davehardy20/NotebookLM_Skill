@@ -47,7 +47,7 @@ bun run build
 
 ```bash
 # Check CLI is working
-./scripts/notebooklm --help
+notebooklm --help
 
 # You should see:
 # Usage: notebooklm [options] [command]
@@ -69,20 +69,20 @@ bun run build
 
 ```bash
 # 1. Authenticate with Google (opens browser)
-./scripts/notebooklm auth setup
+notebooklm auth setup
 
 # 2. Verify authentication
-./scripts/notebooklm auth status
+notebooklm auth status
 
 # 3. Add your first notebook
-./scripts/notebooklm notebook add \
+notebooklm notebook add \
   "https://notebooklm.google.com/notebook/YOUR_NOTEBOOK_ID" \
   -n "My First Notebook" \
   -d "Description of your notebook" \
   -t "topic1,topic2"
 
 # 4. List notebooks to verify
-./scripts/notebooklm notebook list
+notebooklm notebook list
 ```
 
 ### Optional: Add to PATH

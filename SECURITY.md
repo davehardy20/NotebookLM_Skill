@@ -31,7 +31,7 @@ To enable encryption:
 
 ```bash
 export STATE_ENCRYPTION_KEY="your-32-character-key-here"
-./scripts/notebooklm auth setup
+notebooklm auth setup
 ```
 
 **Migration**: Existing unencrypted state files are automatically migrated to encrypted format with backups created.
