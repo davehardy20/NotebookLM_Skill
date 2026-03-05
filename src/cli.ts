@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import packageJson from '../package.json' with { type: 'json' };
+import { setupCleanupHandlers } from './browser/browser-pool.js';
 import { addAskCommand } from './commands/ask.js';
 import { addAuthCommand } from './commands/auth.js';
 import { addCacheCommand } from './commands/cache.js';
@@ -20,6 +21,8 @@ program
   .option('-v, --verbose', 'enable verbose logging')
   .option('-c, --config <path>', 'path to configuration file')
   .hook('preAction', async () => {
+    setupCleanupHandlers();
+
     const paths = Paths.getInstance();
     try {
       await paths.ensureSecurePermissions();
@@ -51,6 +54,14 @@ program.on('command:*', operands => {
 });
 
 export function parse(args?: string[]): void {
+  const argv = args || process.argv;
+  const hasCommand = argv.slice(2).some(arg => !arg.startsWith('-') && arg.length > 0);
+
+  if (!hasCommand) {
+    program.help();
+    process.exit(0);
+  }
+
   program.parse(args);
 }
 

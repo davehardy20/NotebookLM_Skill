@@ -645,6 +645,3 @@ export function setupCleanupHandlers(): void {
 
   logger.debug('Cleanup handlers registered');
 }
-
-// Setup cleanup handlers on module import
-setupCleanupHandlers();
