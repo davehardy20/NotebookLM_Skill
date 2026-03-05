@@ -1,0 +1,1 @@
+{"type":"pattern","name":"compiled-binary-side-effects","description":"When using bun build --compile, module-level side effects like process.on handlers execute immediately on import. This prevents clean process exit even for help text. Move side effects into explicit initialization.","classification":"tactical","recorded_at":"2026-03-05T16:37:42.197Z","id":"mx-0242ac"}

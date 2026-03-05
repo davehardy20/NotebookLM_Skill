@@ -1,0 +1,1 @@
+{"type":"pattern","name":"explicit-help-exit","description":"CLI applications using Commander.js should handle no-command case explicitly with program.help() and process.exit(0). Default behavior may leave event listeners registered causing hangs.","classification":"tactical","recorded_at":"2026-03-05T16:37:43.409Z","id":"mx-b4c81b"}
