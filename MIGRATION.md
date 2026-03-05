@@ -5,6 +5,7 @@ This guide helps you migrate from the Python NotebookLM skill to the new TypeScr
 ## Overview
 
 The TypeScript rewrite provides:
+
 - **20-30x faster startup** (0.1s vs 2-3s)
 - **Standalone binary** - no Python/virtualenv required
 - **Better performance** with browser session pooling
@@ -21,13 +22,13 @@ git clone https://github.com/davehardy20/NotebookLM_Skill.git notebooklm-ts
 cd notebooklm-ts
 
 # Install dependencies
-pnpm install
+bun install
 
 # Build the project
-pnpm run build
+bun run build
 
 # Create standalone binary (optional)
-pnpm run build:binary
+bun run build:binary
 ```
 
 ### 2. Make Binary Available
@@ -50,11 +51,13 @@ npx notebooklm --version
 The TypeScript version uses the **exact same file locations** as the Python version for full backward compatibility:
 
 **Data Directory:**
+
 ```
 ~/.claude/skills/notebooklm/data/
 ```
 
 **Files:**
+
 - `library.json` - Notebook library (fully compatible)
 - `auth_info.json` - Auth metadata
 - `browser_state/` - Browser session data
@@ -67,6 +70,7 @@ The TypeScript version uses the **exact same file locations** as the Python vers
 While library and cache data are compatible, browser authentication state needs to be recreated due to different storage formats between Python and TypeScript.
 
 **Migration steps:**
+
 ```bash
 # 1. Set up authentication with TypeScript
 notebooklm auth setup
@@ -79,22 +83,22 @@ notebooklm auth validate
 
 ## CLI Command Mapping
 
-| Python Command | TypeScript Command | Notes |
-|----------------|-------------------|-------|
-| `python run.py auth setup` | `notebooklm auth setup` | Opens browser for login |
-| `python run.py auth status` | `notebooklm auth status` | Shows auth state |
-| `python run.py auth validate` | `notebooklm auth validate` | Tests auth validity |
-| `python run.py auth clear` | `notebooklm auth clear` | Removes auth data |
-| `python run.py notebook add <url>` | `notebooklm notebook add <url>` | Add with --name, --description, --topics |
-| `python run.py notebook list` | `notebooklm notebook list` | Table format output |
-| `python run.py notebook search <query>` | `notebooklm notebook search <query>` | Search by name/topic/tag |
-| `python run.py notebook activate <id>` | `notebooklm notebook activate <id>` | Set active notebook |
-| `python run.py notebook remove <id>` | `notebooklm notebook remove <id>` | Remove with confirmation |
-| `python run.py notebook stats` | `notebooklm notebook stats` | Show library statistics |
-| `python run.py ask --question "Q"` | `notebooklm ask "Question"` | Direct question argument |
-| `python run.py cache stats` | `notebooklm cache stats` | Cache statistics |
-| `python run.py cache clear` | `notebooklm cache clear` | Clear all cache |
-| `python run.py perf report` | `notebooklm perf report` | Performance report |
+| Python Command                          | TypeScript Command                   | Notes                                    |
+| --------------------------------------- | ------------------------------------ | ---------------------------------------- |
+| `python run.py auth setup`              | `notebooklm auth setup`              | Opens browser for login                  |
+| `python run.py auth status`             | `notebooklm auth status`             | Shows auth state                         |
+| `python run.py auth validate`           | `notebooklm auth validate`           | Tests auth validity                      |
+| `python run.py auth clear`              | `notebooklm auth clear`              | Removes auth data                        |
+| `python run.py notebook add <url>`      | `notebooklm notebook add <url>`      | Add with --name, --description, --topics |
+| `python run.py notebook list`           | `notebooklm notebook list`           | Table format output                      |
+| `python run.py notebook search <query>` | `notebooklm notebook search <query>` | Search by name/topic/tag                 |
+| `python run.py notebook activate <id>`  | `notebooklm notebook activate <id>`  | Set active notebook                      |
+| `python run.py notebook remove <id>`    | `notebooklm notebook remove <id>`    | Remove with confirmation                 |
+| `python run.py notebook stats`          | `notebooklm notebook stats`          | Show library statistics                  |
+| `python run.py ask --question "Q"`      | `notebooklm ask "Question"`          | Direct question argument                 |
+| `python run.py cache stats`             | `notebooklm cache stats`             | Cache statistics                         |
+| `python run.py cache clear`             | `notebooklm cache clear`             | Clear all cache                          |
+| `python run.py perf report`             | `notebooklm perf report`             | Performance report                       |
 
 ### New Commands in TypeScript
 
@@ -137,14 +141,15 @@ export NAVIGATION_TIMEOUT=10000    # 10 seconds
 
 TypeScript uses XDG Base Directory specification:
 
-| Data Type | Location |
-|-----------|----------|
-| Library | `$XDG_DATA_HOME/notebooklm/library.json` |
-| Auth State | `$XDG_DATA_HOME/notebooklm/auth_state.json` |
-| Cache | `$XDG_CACHE_HOME/notebooklm/response_cache.json` |
+| Data Type         | Location                                           |
+| ----------------- | -------------------------------------------------- |
+| Library           | `$XDG_DATA_HOME/notebooklm/library.json`           |
+| Auth State        | `$XDG_DATA_HOME/notebooklm/auth_state.json`        |
+| Cache             | `$XDG_CACHE_HOME/notebooklm/response_cache.json`   |
 | Performance Stats | `$XDG_DATA_HOME/notebooklm/performance_stats.json` |
 
 Default locations (macOS/Linux):
+
 - Library: `~/.local/share/notebooklm/library.json`
 - Cache: `~/.cache/notebooklm/response_cache.json`
 
@@ -173,6 +178,7 @@ React is a JavaScript library for building user interfaces...
 ### 3. Colored Output
 
 All commands use colored output for better readability:
+
 - Green ✓ for success
 - Yellow ⚠ for warnings
 - Red ✗ for errors
@@ -195,6 +201,7 @@ Error: Authentication expired
 ### 1. Authentication Requires Re-setup
 
 Browser authentication state is not compatible. You must run:
+
 ```bash
 notebooklm auth setup
 ```
@@ -202,6 +209,7 @@ notebooklm auth setup
 ### 2. File Locations (Unchanged)
 
 Both Python and TypeScript versions use the same file locations:
+
 - Data: `~/.claude/skills/notebooklm/data/`
 - Binary: `~/.claude/skills/notebooklm/scripts/`
 
@@ -299,6 +307,6 @@ notebooklm ask --help
 ✅ **Cache data** - Fully compatible, no action needed  
 ⚠️ **Authentication** - Requires re-setup (`notebooklm auth setup`)  
 🚀 **Performance** - 60-70% faster subsequent queries  
-📦 **Binary** - Single executable, no dependencies  
+📦 **Binary** - Single executable, no dependencies
 
 **Migration time:** ~5 minutes (mostly re-authentication)

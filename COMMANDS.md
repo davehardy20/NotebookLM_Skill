@@ -7,7 +7,7 @@ Complete guide to installing and using the `notebooklm` CLI with practical examp
 ### Prerequisites
 
 - **Node.js** >= 20.0.0
-- **pnpm** (recommended) or npm
+- **bun** (recommended) or npm
 - **Google Chrome** (will be installed by Playwright if not present)
 
 ### Step 1: Clone the Repository
@@ -27,8 +27,8 @@ cd notebooklm
 ### Step 2: Install Dependencies
 
 ```bash
-# Install Node.js dependencies
-pnpm install
+# Install dependencies with bun
+bun install
 
 # Or with npm
 npm install
@@ -38,7 +38,7 @@ npm install
 
 ```bash
 # Build the TypeScript project
-pnpm run build
+bun run build
 
 # This creates the compiled CLI in dist/cli.cjs
 ```
@@ -110,8 +110,8 @@ cd ~/.claude/skills/notebooklm
 git pull origin main
 
 # Rebuild
-pnpm install
-pnpm run build
+bun install
+bun run build
 ```
 
 ---
@@ -636,14 +636,14 @@ notebooklm auth status && notebooklm ask "Question"
 
 ## Troubleshooting Quick Reference
 
-| Issue            | Command           | Solution                             |
-| ---------------- | ----------------- | ------------------------------------ |
-| Auth expired     | `auth validate`   | Run `auth setup`                     |
-| Slow queries     | `perf stats`      | Check cache hit rate                 |
-| Wrong notebook   | `notebook list`   | Use `--id` or activate correct one   |
-| Cache issues     | `cache clear`     | Clear and retry                      |
-| Missing notebook | `notebook search` | Find by keyword                      |
-| Build errors     | -                 | Run `pnpm install && pnpm run build` |
+| Issue            | Command           | Solution                           |
+| ---------------- | ----------------- | ---------------------------------- |
+| Auth expired     | `auth validate`   | Run `auth setup`                   |
+| Slow queries     | `perf stats`      | Check cache hit rate               |
+| Wrong notebook   | `notebook list`   | Use `--id` or activate correct one |
+| Cache issues     | `cache clear`     | Clear and retry                    |
+| Missing notebook | `notebook search` | Find by keyword                    |
+| Build errors     | -                 | Run `bun install && bun run build` |
 
 ---
 
@@ -683,15 +683,14 @@ node --version
 # If not installed, download from https://nodejs.org/
 ```
 
-### pnpm Not Found
+### Bun Not Found
 
 ```bash
-# Install pnpm globally
-npm install -g pnpm
+# Install bun globally
+curl -fsSL https://bun.sh/install | bash
 
-# Or use corepack (comes with Node.js 16.13+)
-corepack enable
-corepack prepare pnpm@latest --activate
+# Or on macOS with Homebrew
+brew install oven-sh/bun/bun
 ```
 
 ### Build Failures
@@ -699,11 +698,11 @@ corepack prepare pnpm@latest --activate
 ```bash
 # Clean install
 rm -rf node_modules dist
-pnpm install
-pnpm run build
+bun install
+bun run build
 
 # Check TypeScript errors
-pnpm run typecheck
+bun run typecheck
 ```
 
 ### Playwright/Browser Issues

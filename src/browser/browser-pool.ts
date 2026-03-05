@@ -8,8 +8,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import type { BrowserContext, Page } from 'playwright';
-import { chromium } from 'playwright';
+import type { BrowserContext, BrowserType, Page } from 'playwright';
 import { AuthError, BrowserError } from '../core/errors.js';
 import { createChildLogger } from '../core/logger.js';
 import { Paths } from '../core/paths.js';
@@ -17,6 +16,33 @@ import { BrowserFactory, setupResourceBlocking } from './browser-utils.js';
 import { QUERY_INPUT_SELECTORS } from './selectors.js';
 
 const logger = createChildLogger('BrowserPool');
+
+// Lazy-loaded playwright module (for binary distribution compatibility)
+let playwrightModule: { chromium: BrowserType } | null = null;
+
+/**
+ * Get the Playwright module, loading it dynamically if needed.
+ * This allows the binary to work even when Playwright is an external dependency.
+ */
+async function getPlaywright(): Promise<{ chromium: BrowserType }> {
+  if (playwrightModule) {
+    return playwrightModule;
+  }
+
+  try {
+    const pw = await import('playwright');
+    playwrightModule = { chromium: pw.chromium };
+    return playwrightModule;
+  } catch (error) {
+    logger.error('Failed to load Playwright', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw new BrowserError(
+      'Playwright is not installed. Please install it with: bun add playwright\n' +
+        'Or if using the compiled binary globally: bun install -g playwright'
+    );
+  }
+}
 
 /** Default idle timeout in milliseconds (15 minutes) */
 const DEFAULT_IDLE_TIMEOUT_MS = 15 * 60 * 1000;
@@ -151,6 +177,7 @@ export class NotebookLMSession {
 
     try {
       const paths = Paths.getInstance();
+      const { chromium } = await getPlaywright();
 
       // Launch persistent browser context
       this._context = await BrowserFactory.launchPersistentContext(

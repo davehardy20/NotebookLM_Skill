@@ -18,21 +18,27 @@ This is a TypeScript port of the Python-based NotebookLM skill, featuring:
 ## Features
 
 ### 🔐 Persistent Authentication
+
 One-time Google login with automatic session persistence across queries.
 
 ### 📚 Notebook Library Management
+
 Save and organize your NotebookLM URLs with metadata (topics, descriptions, tags).
 
 ### ⚡ Response Caching
+
 Intelligent caching reduces response time for repeated questions.
 
 ### 📜 Query History
+
 Automatically track all your queries with timestamps and notebook references.
 
 ### 📊 Performance Monitoring
+
 Track query performance, success rates, and cache hit rates.
 
 ### 🎯 Smart Discovery
+
 Query unknown notebooks first to discover content, then add to library.
 
 ## Project Structure
@@ -70,13 +76,31 @@ notebooklm/
 
 ## Prerequisites
 
-- **Node.js** >= 20.0.0
-- **pnpm** (recommended) or npm
+- **Bun** >= 1.0.0 (recommended) or **Node.js** >= 20.0.0
+- **Playwright** (will be installed automatically as a peer dependency)
 - **Google Chrome** (installed automatically by Playwright if not present)
 
 ## Installation
 
-### 1. Clone the Repository
+### Option 1: Install via bunx (Recommended - No Clone Required)
+
+The fastest way to get started is using `bunx` which automatically downloads and caches the latest version:
+
+```bash
+# Install Playwright globally (required external dependency)
+bun install -g playwright
+
+# Run directly with bunx
+bunx notebooklm-skill --help
+
+# Or install globally
+bun install -g notebooklm-skill
+notebooklm --help
+```
+
+**Note:** Playwright is an external dependency and must be installed separately because it includes native browser binaries that cannot be bundled.
+
+### Option 2: Clone and Build from Source
 
 ```bash
 # Create skills directory if it does not exist
@@ -88,45 +112,33 @@ git clone https://github.com/davehardy20/NotebookLM_Skill.git notebooklm
 
 # Navigate to the skill directory
 cd notebooklm
+
+# Install dependencies with bun
+bun install
+
+# The binary will be automatically compiled during postinstall
+# Or manually build it:
+bun run build:binary
 ```
 
-### 2. Install Dependencies
-
-```bash
-# Install Node.js dependencies
-pnpm install
-
-# Or with npm
-npm install
-```
-
-### 3. Build the Project
-
-```bash
-# Build the TypeScript project
-pnpm run build
-
-# This creates the compiled CLI in dist/cli.cjs
-```
-
-### 4. Verify Installation
+### 3. Verify Installation
 
 ```bash
 # Check CLI is working
-./scripts/notebooklm --help
+notebooklm --help
 ```
 
-### 5. Initial Setup
+### 4. Initial Setup
 
 ```bash
 # Authenticate with Google (opens browser)
-./scripts/notebooklm auth setup
+notebooklm auth setup
 
 # Verify authentication
-./scripts/notebooklm auth status
+notebooklm auth status
 
 # Add your first notebook
-./scripts/notebooklm notebook add \
+notebooklm notebook add \
   "https://notebooklm.google.com/notebook/YOUR_NOTEBOOK_ID" \
   -n "My Notebook" \
   -d "Description" \
@@ -160,11 +172,13 @@ See [COMMANDS.md](./COMMANDS.md) for the complete command reference with example
 ## Key Commands
 
 ### Authentication
+
 - `notebooklm auth setup` - Initial authentication
 - `notebooklm auth status` - Check authentication
 - `notebooklm auth validate` - Test if auth is valid
 
 ### Notebook Management
+
 - `notebooklm notebook add URL -n NAME -d DESC -t TOPICS` - Add notebook
 - `notebooklm notebook list` - List all notebooks
 - `notebooklm notebook search QUERY` - Search notebooks
@@ -172,12 +186,14 @@ See [COMMANDS.md](./COMMANDS.md) for the complete command reference with example
 - `notebooklm notebook stats` - Show library statistics
 
 ### Queries
+
 - `notebooklm ask "question"` - Query active/default notebook
 - `notebooklm ask "question" --id ID` - Query specific notebook
 - `notebooklm ask "question" --url URL` - Query by URL
 - `notebooklm ask "question" --save` - Save to history
 
 ### Cache and Performance
+
 - `notebooklm cache stats` - View cache statistics
 - `notebooklm cache clear` - Clear all cache
 - `notebooklm perf stats` - View performance metrics
@@ -185,34 +201,34 @@ See [COMMANDS.md](./COMMANDS.md) for the complete command reference with example
 
 ## Differences from Python Version
 
-| Feature | Python Version | TypeScript Version |
-|---------|---------------|-------------------|
-| **Runtime** | Python 3.8+ | Node.js 20+ |
-| **Browser** | Patchright | Playwright |
-| **Distribution** | Source + venv | Compiled + wrapper |
-| **Caching** | No | Yes |
-| **History** | No | Yes |
-| **Performance** | No | Yes |
-| **Type Safety** | No | Yes |
-| **CLI** | Multiple scripts | Unified interface |
+| Feature          | Python Version   | TypeScript Version |
+| ---------------- | ---------------- | ------------------ |
+| **Runtime**      | Python 3.8+      | Node.js 20+        |
+| **Browser**      | Patchright       | Playwright         |
+| **Distribution** | Source + venv    | Compiled + wrapper |
+| **Caching**      | No               | Yes                |
+| **History**      | No               | Yes                |
+| **Performance**  | No               | Yes                |
+| **Type Safety**  | No               | Yes                |
+| **CLI**          | Multiple scripts | Unified interface  |
 
 ## Development
 
 ```bash
 # Run in development mode
-pnpm run dev
+bun run dev
 
 # Run tests
-pnpm run test
+bun run test
 
 # Type check
-pnpm run typecheck
+bun run typecheck
 
 # Lint
-pnpm run lint
+bun run lint
 
 # Format code
-pnpm run format
+bun run format
 ```
 
 ## Data Storage
@@ -248,7 +264,7 @@ Quick fixes:
 # Rebuild after issues
 rm -rf node_modules dist
 pnpm install
-pnpm run build
+bun run build
 
 # Clear auth and re-authenticate
 notebooklm auth clear
@@ -283,10 +299,11 @@ MIT License - See LICENSE file for details.
 ## Contributing
 
 Contributions are welcome! Please ensure:
-- TypeScript compiles without errors (`pnpm run typecheck`)
-- Tests pass (`pnpm run test`)
-- Code is formatted (`pnpm run format`)
-- Linter passes (`pnpm run lint`)
+
+- TypeScript compiles without errors (`bun run typecheck`)
+- Tests pass (`bun run test`)
+- Code is formatted (`bun run format`)
+- Linter passes (`bun run lint`)
 
 ## Support
 

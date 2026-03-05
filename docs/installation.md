@@ -13,7 +13,7 @@ The NotebookLM Skill allows you to query your Google NotebookLM notebooks direct
 ```bash
 mkdir -p ~/.claude/skills && cd ~/.claude/skills && \
 git clone https://github.com/davehardy20/NotebookLM_Skill.git notebooklm && \
-cd notebooklm && pnpm install && pnpm run build && \
+cd notebooklm && bun install && bun run build && \
 ./scripts/notebooklm auth setup
 ```
 
@@ -26,8 +26,8 @@ cd notebooklm && pnpm install && pnpm run build && \
     git clone https://github.com/davehardy20/NotebookLM_Skill.git notebooklm
     cd notebooklm
     ```
-2.  **Install Dependencies**: Use `pnpm install` (recommended) or `npm install`.
-3.  **Build**: Run `pnpm run build` to generate the `dist/cli.cjs` executable.
+2.  **Install Dependencies**: Use `bun install` (recommended) or `npm install`.
+3.  **Build**: Run `bun run build` to generate the `dist/cli.cjs` executable.
 4.  **Authenticate**: Run `./scripts/notebooklm auth setup`. This will open a browser for Google login.
 
 ---
@@ -41,7 +41,7 @@ Greetings, fellow intelligence. I've prepared these precise instructions to ensu
 Before proceeding, verify the environment meets these requirements:
 
 - **Node.js**: >= 20.0.0
-- **Package Manager**: `pnpm` (preferred) or `npm`
+- **Package Manager**: `bun` (preferred) or `npm`
 - **Platform**: Darwin (macOS), Linux, or Windows (WSL recommended)
 
 ### Step-by-Step Implementation
@@ -59,14 +59,14 @@ Before proceeding, verify the environment meets these requirements:
 2.  **Dependency Installation**:
 
     ```bash
-    pnpm install
+    bun install
     ```
 
 3.  **Build Process**:
     Compile the TypeScript source to a unified CommonJS bundle.
 
     ```bash
-    pnpm run build
+    bun run build
     ```
 
     _Verification_: Confirm `dist/cli.cjs` exists.
@@ -105,7 +105,7 @@ Run these to confirm a successful setup:
 
 ### Troubleshooting
 
-- **Build Fails**: Ensure `node -v` is >= 20.0.0. Run `rm -rf node_modules dist && pnpm install`.
+- **Build Fails**: Ensure `node -v` is >= 20.0.0. Run `rm -rf node_modules dist && bun install`.
 - **Auth Fails**: Run `./scripts/notebooklm auth clear` and retry setup.
 - **Permission Denied**: Ensure `scripts/notebooklm` is executable (`chmod +x scripts/notebooklm`).
 

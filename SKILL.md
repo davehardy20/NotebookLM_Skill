@@ -222,24 +222,24 @@ This is a TypeScript/Node.js project with the following structure:
 
 ```bash
 # Install dependencies
-pnpm install
+bun install
 
 # Build the project
-pnpm run build
+bun run build
 
 # Or build everything including wrapper script
-pnpm run build:binary
+bun run build:binary
 ```
 
 ### Development Commands
 
 ```bash
-pnpm run dev              # Run in development mode with hot reload
-pnpm run build            # Build the TypeScript project
-pnpm run typecheck        # Type check without emitting
-pnpm run test             # Run tests
-pnpm run lint             # Run ESLint
-pnpm run format           # Format code with Prettier
+bun run dev              # Run in development mode with hot reload
+bun run build            # Build the TypeScript project
+bun run typecheck        # Type check without emitting
+bun run test             # Run tests
+bun run lint             # Run ESLint
+bun run format           # Format code with Prettier
 ```
 
 ## Data Storage
@@ -300,8 +300,8 @@ Synthesize and respond to user
 | Command not found    | Make sure you're in the skill directory or use full path |
 | Authentication fails | Browser must be visible for setup! Use `auth setup`      |
 | Rate limit (50/day)  | Wait or switch Google account                            |
-| Build errors         | Run `pnpm install` then `pnpm run build`                 |
-| Type errors          | Run `pnpm run typecheck` to see issues                   |
+| Build errors         | Run `bun install` then `bun run build`                   |
+| Type errors          | Run `bun run typecheck` to see issues                    |
 | Notebook not found   | Check with `./scripts/notebooklm notebook list`          |
 | Cache issues         | Clear with `./scripts/notebooklm cache clear`            |
 | Slow responses       | Check `./scripts/notebooklm perf stats` for bottlenecks  |

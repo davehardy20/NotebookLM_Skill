@@ -5,15 +5,23 @@
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "notebooklm": "./dist/cli.cjs"
+    "notebooklm": "./bin/notebooklm"
   },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "tsx watch src/cli.ts",
     "build": "tsup",
-    "build:binary": "echo 'Binary build disabled - using wrapper script instead' && ln -sf notebooklm.cjs scripts/notebooklm",
-    "build:binary:linux": "echo 'Binary build disabled - requires Node.js installation'",
-    "build:binary:windows": "echo 'Binary build disabled - requires Node.js installation'",
-    "build:binary:all": "pnpm run build:binary",
+    "build:binary": "bun build src/cli.ts --compile --outfile bin/notebooklm --external playwright --external playwright-core",
+    "build:binary:linux": "bun build src/cli.ts --compile --target=bun-linux-x64 --outfile bin/notebooklm-linux-x64 --external playwright --external playwright-core",
+    "build:binary:macos": "bun build src/cli.ts --compile --target=bun-darwin-x64 --outfile bin/notebooklm-macos-x64 --external playwright --external playwright-core && bun build src/cli.ts --compile --target=bun-darwin-arm64 --outfile bin/notebooklm-macos-arm64 --external playwright --external playwright-core",
+    "build:binary:windows": "bun build src/cli.ts --compile --target=bun-windows-x64 --outfile bin/notebooklm-windows-x64.exe --external playwright --external playwright-core",
+    "build:binary:all": "bun run build:binary:linux && bun run build:binary:macos && bun run build:binary:windows",
+    "postinstall": "bun run build:binary",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -22,7 +30,8 @@
     "lint:fix": "eslint src/ --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\"",
-    "clean": "rm -rf dist/ bin/ coverage/"
+    "clean": "rm -rf dist/ bin/ coverage/",
+    "prepublishOnly": "bun run build && bun run build:binary:all"
   },
   "keywords": [
     "notebooklm",
@@ -34,9 +43,11 @@
   "author": "Dave Hardy",
   "license": "MIT",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=20.0.0",
+    "bun": ">=1.0.0"
   },
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "bun@1.0.0",
+  "preferGlobal": true,
   "dependencies": {
     "chalk": "^4.1.2",
     "commander": "^12.0.0",
@@ -50,14 +61,14 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "@typescript-eslint/eslint-plugin": "^6.19.0",
-    "@typescript-eslint/parser": "^6.19.0",
-    "@vitest/coverage-v8": "^1.2.0",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "@vitest/coverage-v8": "^4.0.18",
     "eslint": "^8.56.0",
     "prettier": "^3.2.4",
     "tsup": "^8.0.1",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
-    "vitest": "^1.2.0"
+    "vitest": "^4.0.18"
   }
 }
