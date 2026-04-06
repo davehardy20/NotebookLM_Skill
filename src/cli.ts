@@ -1,6 +1,5 @@
 import { Command } from 'commander';
 import packageJson from '../package.json' with { type: 'json' };
-import { setupCleanupHandlers } from './browser/browser-pool.js';
 import { addAskCommand } from './commands/ask.js';
 import { addAuthCommand } from './commands/auth.js';
 import { addCacheCommand } from './commands/cache.js';
@@ -21,8 +20,6 @@ program
   .option('-v, --verbose', 'enable verbose logging')
   .option('-c, --config <path>', 'path to configuration file')
   .hook('preAction', async () => {
-    setupCleanupHandlers();
-
     const paths = Paths.getInstance();
     try {
       await paths.ensureSecurePermissions();
@@ -48,21 +45,21 @@ program
   });
 
 program.on('command:*', operands => {
-  console.error(`error: unknown command '${operands[0]}'`);
-  console.error('Run "notebooklm --help" to see available commands');
+  console.error(`
+${'─'.repeat(60)}
+  Error: unknown command '${operands[0]}'
+${'─'.repeat(60)}
+  Run 'notebooklm --help' for available commands.
+${'─'.repeat(60)}
+`);
   process.exit(1);
 });
 
-export function parse(args?: string[]): void {
-  const argv = args || process.argv;
-  const hasCommand = argv.slice(2).some(arg => !arg.startsWith('-') && arg.length > 0);
-
-  if (!hasCommand) {
-    program.help();
-    process.exit(0);
-  }
-
-  program.parse(args);
+if (process.argv.length <= 2) {
+  program.help();
 }
 
-parse();
+program.parseAsync(process.argv).catch(error => {
+  console.error('Fatal error:', error);
+  process.exit(1);
+});
