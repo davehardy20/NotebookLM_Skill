@@ -5,6 +5,7 @@ import { AuthenticationError } from '../api/errors.js';
 import { NotebookClient } from '../api/notebooks.js';
 import type { AuthTokens } from '../api/types.js';
 import { getAuthManager } from '../auth/auth-manager.js';
+import { getCliErrorMessage } from '../core/cli-errors.js';
 
 interface AuthImportOptions {
   file?: string;
@@ -116,9 +117,9 @@ async function handleImportCommand(options: AuthImportOptions): Promise<void> {
   } catch (error) {
     spinner.fail('Authentication import failed');
     if (error instanceof AuthenticationError) {
-      console.error(chalk.red(`\n${error.message}`));
-    } else if (error instanceof Error) {
-      console.error(chalk.red(`\nError: ${error.message}`));
+      console.error(chalk.red(`\n${getCliErrorMessage(error)}`));
+    } else {
+      console.error(chalk.red(`\nError: ${getCliErrorMessage(error)}`));
     }
     process.exit(1);
   }
@@ -218,7 +219,7 @@ async function handleLoginCommand(options: AuthLoginOptions): Promise<void> {
 
   if (!result.success) {
     console.log(chalk.red('\n❌ Authentication failed'));
-    console.log(chalk.yellow(result.error));
+    console.log(chalk.yellow(getCliErrorMessage(result.error)));
 
     if (result.needsLogin) {
       console.log(chalk.dim('\nPlease make sure you are logged in to NotebookLM in Chrome.'));
@@ -240,11 +241,7 @@ async function handleLoginCommand(options: AuthLoginOptions): Promise<void> {
 }
 
 function handleError(error: unknown): void {
-  if (error instanceof Error) {
-    console.error('\n' + chalk.red('❌ Error:') + ' ' + error.message);
-  } else {
-    console.error('\n' + chalk.red('❌ Unknown error occurred'));
-  }
+  console.error('\n' + chalk.red('❌ Error:') + ' ' + getCliErrorMessage(error));
 
   process.exit(1);
 }

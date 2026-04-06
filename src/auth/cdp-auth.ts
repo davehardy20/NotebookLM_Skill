@@ -8,6 +8,12 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PAGE_FETCH_HEADERS, REQUIRED_COOKIES } from '../api/constants.js';
 import type { AuthTokens } from '../api/types.js';
+import {
+  isEncrypted,
+  parseStateData,
+  requireEncryptionKeyFromEnv,
+  serializeStateData,
+} from '../core/crypto.js';
 import { AuthError, TimeoutError } from '../core/errors.js';
 import { logger } from '../core/logger.js';
 import { Paths } from '../core/paths.js';
@@ -239,9 +245,10 @@ export class CDPAuthManager {
                   cookie.domain === 'accounts.google.com'
                 ) {
                   cookieMap[cookie.name] = cookie.value;
-                  logger.debug(`Found cookie: ${cookie.name}`);
                 }
               }
+
+              logger.debug('Extracted Chrome cookies for NotebookLM authentication');
 
               ws.close();
               resolve(cookieMap);
@@ -337,7 +344,9 @@ export class CDPAuthManager {
     const requiredCount = REQUIRED_COOKIES.length;
     const foundCount = REQUIRED_COOKIES.filter(name => cookies[name]).length;
 
-    logger.debug(`Found ${foundCount}/${requiredCount} required cookies`);
+    logger.debug('Checked Chrome NotebookLM authentication cookies', {
+      hasRequiredCookies: foundCount >= requiredCount,
+    });
     return foundCount >= 3;
   }
 
@@ -517,7 +526,9 @@ export class CDPAuthManager {
    */
   async saveAuth(tokens: AuthTokens): Promise<void> {
     await mkdir(this.paths.dataDir, { recursive: true });
-    await writeFile(this.authPath, JSON.stringify(tokens, null, 2), { mode: 0o600 });
+    const encryptionKey = requireEncryptionKeyFromEnv();
+    const serialized = serializeStateData(tokens, encryptionKey);
+    await writeFile(this.authPath, serialized, { mode: 0o600 });
   }
 
   /**
@@ -526,9 +537,19 @@ export class CDPAuthManager {
   async loadAuth(): Promise<AuthTokens | null> {
     try {
       const content = readFileSync(this.authPath, 'utf-8');
-      return JSON.parse(content) as AuthTokens;
-    } catch {
-      return null;
+      if (!isEncrypted(content)) {
+        throw new Error(
+          'Existing authentication data is stored insecurely. Delete auth.json and re-authenticate after setting STATE_ENCRYPTION_KEY.'
+        );
+      }
+
+      return parseStateData(content, requireEncryptionKeyFromEnv()) as AuthTokens;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return null;
+      }
+
+      throw error;
     }
   }
 

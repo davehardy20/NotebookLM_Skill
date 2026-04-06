@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import {
   BATCHEXECUTE_URL,
   BL_FALLBACK,
@@ -35,7 +36,7 @@ export class BaseClient {
 
   constructor(authTokens: AuthTokens) {
     this.authTokens = authTokens;
-    this.reqidCounter = Math.floor(Math.random() * 900000) + 100000;
+    this.reqidCounter = randomInt(100000, 1000000);
   }
 
   /**

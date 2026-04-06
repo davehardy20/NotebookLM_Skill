@@ -129,7 +129,17 @@ bun run build:binary
 notebooklm --help
 ```
 
-### 4. Initial Setup
+### 4. Configure Required Encryption Key
+
+Before authenticating, set `STATE_ENCRYPTION_KEY`. The CLI now requires this key to encrypt locally stored authentication data, cached responses, and query history.
+
+```bash
+export STATE_ENCRYPTION_KEY="replace-this-with-a-unique-32-plus-character-secret"
+```
+
+Use a strong secret, keep it out of version control, and store it somewhere recoverable. If you later lose or change it, delete the local NotebookLM auth/cache/history files and authenticate again.
+
+### 5. Initial Setup
 
 ```bash
 # Authenticate with Google (opens browser)
@@ -149,6 +159,9 @@ notebooklm notebook add \
 ## Quick Start
 
 ```bash
+# Required once per shell/session unless loaded from your shell profile
+export STATE_ENCRYPTION_KEY="replace-this-with-a-unique-32-plus-character-secret"
+
 # Authenticate (one-time)
 notebooklm auth setup
 
@@ -242,11 +255,14 @@ All user data is stored in `~/.claude/skills/notebooklm/data/`:
 - `browser_state/` - Authentication cookies and session
 - `logs/` - Application logs
 
-**Security:** The `data/` directory is protected by `.gitignore` and should never be committed.
+**Security:** The `data/` directory is protected by `.gitignore` and should never be committed. Authentication data, cache, and query history are encrypted at rest and require `STATE_ENCRYPTION_KEY`.
 
 ## Environment Variables
 
 ```bash
+# Required: local data encryption for auth, cache, and history
+STATE_ENCRYPTION_KEY=replace-this-with-a-unique-32-plus-character-secret
+
 # Optional: Custom paths
 NOTEBOOKLM_SKILL_DIR=/custom/path
 NOTEBOOKLM_DATA_DIR=/custom/data

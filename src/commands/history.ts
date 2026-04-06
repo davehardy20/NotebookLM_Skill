@@ -7,6 +7,7 @@ import chalk from 'chalk';
 import type { Command } from 'commander';
 import ora from 'ora';
 import { askQuestion } from '../ask.js';
+import { getCliErrorMessage } from '../core/cli-errors.js';
 import { QueryHistory, resetQueryHistory } from '../history/query-history.js';
 import { getNotebookLibrary } from '../notebook/notebook-manager.js';
 
@@ -184,7 +185,7 @@ async function handleReplayCommand(
 
     if (!result.success) {
       spinner.fail('Failed to get answer from NotebookLM');
-      console.error(result.error);
+      console.error(getCliErrorMessage(result.error));
       process.exit(1);
     }
 
@@ -285,10 +286,6 @@ async function handleClearCommand(force?: boolean): Promise<void> {
  * Handle errors from history commands
  */
 function handleError(error: unknown): void {
-  if (error instanceof Error) {
-    console.error(`\n❌ Error: ${error.message}`);
-  } else {
-    console.error('\n❌ Unknown error occurred');
-  }
+  console.error(`\n❌ Error: ${getCliErrorMessage(error)}`);
   process.exit(1);
 }

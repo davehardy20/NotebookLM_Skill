@@ -11,7 +11,6 @@ export const QueryMetricsSchema = z.object({
   fromCache: z.boolean().default(false).describe('Whether answer came from cache'),
   success: z.boolean().default(true).describe('Whether query succeeded'),
   errorType: z.string().nullable().describe('Type of error if failed, or null'),
-  notebookUrl: z.string().url().nullable().describe('URL of queried notebook, or null'),
 });
 
 export type QueryMetrics = z.infer<typeof QueryMetricsSchema>;

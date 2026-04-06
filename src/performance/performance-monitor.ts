@@ -4,8 +4,10 @@
  */
 
 import { promises as fs } from 'node:fs';
+import { chmod } from 'node:fs/promises';
 import { join } from 'node:path';
 import { Paths } from '../core/paths.js';
+import { safeErrorMessage } from '../core/security.js';
 import {
   type PerformanceSummary,
   PerformanceSummarySchema,
@@ -112,7 +114,7 @@ export class PerformanceMonitor {
       this.startTime = parsed.startTime;
     } catch (error) {
       if (error instanceof Error && 'code' in error && error.code !== 'ENOENT') {
-        console.warn(`⚠️ Could not load metrics: ${error.message}`);
+        console.warn(`⚠️ Could not load metrics: ${safeErrorMessage(error)}`);
       }
     }
   }
@@ -133,10 +135,12 @@ export class PerformanceMonitor {
       };
 
       await fs.writeFile(this.metricsFilePath, JSON.stringify(data, null, 2), 'utf-8');
+
+      if (paths.isUnix()) {
+        await chmod(this.metricsFilePath, 0o600).catch(() => undefined);
+      }
     } catch (error) {
-      console.warn(
-        `⚠️ Could not save metrics: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      console.warn(`⚠️ Could not save metrics: ${safeErrorMessage(error)}`);
     }
   }
 
@@ -175,17 +179,16 @@ export class PerformanceMonitor {
    */
   async recordQuery(
     durationSeconds: number,
-    question: string,
-    answer: string,
+    questionLength: number,
+    answerLength: number,
     options: {
       fromCache?: boolean;
       usePool?: boolean;
       success?: boolean;
-      error?: string;
-      notebookUrl?: string;
+      errorType?: string;
     } = {}
   ): Promise<void> {
-    const { fromCache = false, usePool = true, success = true, error, notebookUrl } = options;
+    const { fromCache = false, usePool = true, success = true, errorType } = options;
 
     this.counters.totalQueries += 1;
 
@@ -219,13 +222,12 @@ export class PerformanceMonitor {
 
     const metrics: QueryMetrics = {
       timestamp: Date.now() / 1000,
-      questionLength: question.length,
-      answerLength: answer.length,
+      questionLength,
+      answerLength,
       durationSeconds,
       fromCache,
       success,
-      errorType: error ?? null,
-      notebookUrl: notebookUrl ?? null,
+      errorType: errorType ?? null,
     };
 
     const validated = QueryMetricsSchema.parse(metrics);

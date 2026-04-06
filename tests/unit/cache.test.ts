@@ -17,12 +17,14 @@ const mocks = vi.hoisted(() => ({
   readFile: vi.fn(),
   writeFile: vi.fn(),
   mkdir: vi.fn(),
+  chmod: vi.fn(),
 }));
 
-vi.mock('fs/promises', () => ({
+vi.mock('node:fs/promises', () => ({
   readFile: mocks.readFile,
   writeFile: mocks.writeFile,
   mkdir: mocks.mkdir,
+  chmod: mocks.chmod,
 }));
 
 vi.mock('../../src/core/paths.js', () => ({
@@ -40,6 +42,12 @@ vi.mock('../../src/core/logger.js', () => ({
     warn: vi.fn(),
     error: vi.fn(),
   },
+  createChildLogger: vi.fn(() => ({
+    info: vi.fn(),
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  })),
 }));
 
 function generateKey(question: string, notebookUrl: string): string {
@@ -57,6 +65,8 @@ describe('ResponseCache', () => {
     mocks.readFile.mockReset();
     mocks.writeFile.mockReset();
     mocks.mkdir.mockReset();
+    mocks.chmod.mockReset();
+    process.env.STATE_ENCRYPTION_KEY = '12345678901234567890123456789012';
 
     cache = new ResponseCache(5, 3600, '/mock/cache/test.json');
   });

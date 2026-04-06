@@ -1,6 +1,16 @@
+import { randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
+import { chmod } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import {
+  isEncrypted,
+  parseStateData,
+  requireEncryptionKeyFromEnv,
+  serializeStateData,
+} from '../core/crypto.js';
 import { logger } from '../core/logger.js';
 import { Paths } from '../core/paths.js';
+import { redactSensitiveContent } from '../core/security.js';
 
 export interface QueryRecord {
   id: string;
@@ -25,7 +35,7 @@ export class QueryHistory {
   private initialized = false;
 
   private constructor() {
-    this.historyFile = Paths.getInstance().dataDir + '/query_history.json';
+    this.historyFile = join(Paths.getInstance().dataDir, 'query_history.json');
   }
 
   static getInstance(): QueryHistory {
@@ -40,13 +50,17 @@ export class QueryHistory {
 
     try {
       const content = await fs.readFile(this.historyFile, 'utf-8');
-      const data: QueryHistoryData = JSON.parse(content);
+      const wasEncrypted = isEncrypted(content);
+      const data = parseStateData(content, requireEncryptionKeyFromEnv()) as QueryHistoryData;
       this.queries = data.queries || [];
       logger.info(`📜 Loaded ${this.queries.length} queries from history`);
+
+      if (!wasEncrypted) {
+        await this.save();
+      }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         this.queries = [];
-        await this.save();
       } else {
         logger.error({ error }, 'Error loading query history');
         throw error;
@@ -58,7 +72,7 @@ export class QueryHistory {
 
   private async save(): Promise<void> {
     try {
-      const dir = this.historyFile.substring(0, this.historyFile.lastIndexOf('/'));
+      const dir = dirname(this.historyFile);
       await fs.mkdir(dir, { recursive: true });
 
       const data: QueryHistoryData = {
@@ -66,7 +80,14 @@ export class QueryHistory {
         lastUpdated: new Date().toISOString(),
       };
 
-      await fs.writeFile(this.historyFile, JSON.stringify(data, null, 2), 'utf-8');
+      const serialized = serializeStateData(data, requireEncryptionKeyFromEnv());
+      await fs.writeFile(this.historyFile, serialized, 'utf-8');
+
+      const paths = Paths.getInstance();
+      if (paths.isUnix()) {
+        await chmod(dir, 0o700).catch(() => undefined);
+        await chmod(this.historyFile, 0o600).catch(() => undefined);
+      }
     } catch (error) {
       logger.error({ error }, 'Error saving query history');
       throw error;
@@ -78,6 +99,8 @@ export class QueryHistory {
 
     const newRecord: QueryRecord = {
       ...record,
+      question: redactSensitiveContent(record.question, 'question'),
+      answer: redactSensitiveContent(record.answer, 'answer'),
       id: this.generateId(),
       timestamp: new Date().toISOString(),
     };
@@ -144,7 +167,7 @@ export class QueryHistory {
   }
 
   private generateId(): string {
-    return 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    return `q_${randomUUID()}`;
   }
 }
 

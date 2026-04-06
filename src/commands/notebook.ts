@@ -8,6 +8,7 @@ import type { Command } from 'commander';
 import ora from 'ora';
 import { NotebookClient } from '../api/notebooks.js';
 import { getAuthManager } from '../auth/auth-manager.js';
+import { getCliErrorMessage } from '../core/cli-errors.js';
 import { extractNotebookIdFromUrl, validateNotebookUrl } from '../core/validation.js';
 import { getNotebookLibrary } from '../notebook/notebook-manager.js';
 
@@ -413,11 +414,7 @@ async function handleStatsCommand(): Promise<void> {
 }
 
 function handleError(error: unknown): void {
-  if (error instanceof Error) {
-    console.error(chalk.red(`\n❌ Error: ${error.message}`));
-  } else {
-    console.error(chalk.red('\n❌ Unknown error occurred'));
-  }
+  console.error(chalk.red(`\n❌ Error: ${getCliErrorMessage(error)}`));
 
   process.exit(1);
 }

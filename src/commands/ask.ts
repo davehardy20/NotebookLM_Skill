@@ -1,6 +1,7 @@
 import type { Command } from 'commander';
 import ora from 'ora';
 import { askQuestion } from '../ask.js';
+import { getCliErrorMessage } from '../core/cli-errors.js';
 import { AuthError, NotFoundError } from '../core/errors.js';
 import { extractNotebookIdFromUrl, validateNotebookUrl } from '../core/validation.js';
 import { getNotebookLibrary } from '../notebook/index.js';
@@ -87,14 +88,12 @@ async function resolveNotebookId(options: AskCommandOptions): Promise<string | n
 
 function handleError(error: unknown): void {
   if (error instanceof AuthError) {
-    console.error(`Authentication error: ${error.message}`);
+    console.error(`Authentication error: ${getCliErrorMessage(error)}`);
     console.error('Run "notebooklm auth import --file cookies.txt" to authenticate');
   } else if (error instanceof NotFoundError) {
-    console.error(`Not found: ${error.message}`);
-  } else if (error instanceof Error) {
-    console.error(`Error: ${error.message}`);
+    console.error(`Not found: ${getCliErrorMessage(error)}`);
   } else {
-    console.error('An unknown error occurred');
+    console.error(`Error: ${getCliErrorMessage(error)}`);
   }
 
   process.exit(1);

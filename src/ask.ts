@@ -2,6 +2,7 @@ import { NotebookClient } from './api/notebooks.js';
 import { getAuthManager } from './auth/auth-manager.js';
 import { getCache } from './cache/index.js';
 import { createChildLogger } from './core/logger.js';
+import { safeErrorMessage } from './core/security.js';
 import { getMonitor } from './performance/index.js';
 
 const logger = createChildLogger('AskQuestion');
@@ -72,7 +73,7 @@ export async function askQuestion(
     }
 
     const monitor = await getMonitor();
-    await monitor.recordQuery(duration, question, result.answer, {
+    await monitor.recordQuery(duration, question.length, result.answer.length, {
       fromCache: false,
       usePool: false,
       success: true,
@@ -92,12 +93,14 @@ export async function askQuestion(
     logger.error('Query failed:', error);
 
     const monitor = await getMonitor();
-    await monitor.recordQuery(duration, question, '', {
+    await monitor.recordQuery(duration, question.length, 0, {
       fromCache: false,
       usePool: false,
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      errorType: error instanceof Error ? error.name : 'UnknownError',
     });
+
+    const safeMessage = safeErrorMessage(error);
 
     return {
       answer: '',
@@ -106,7 +109,7 @@ export async function askQuestion(
       fromCache: false,
       usePool: false,
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: safeMessage,
     };
   }
 }
@@ -131,7 +134,7 @@ async function checkCache(
 async function saveToCache(question: string, notebookId: string, answer: string): Promise<void> {
   try {
     const cache = getCache();
-    await cache.set(question, notebookId, answer);
+    await cache.set(question, answer, notebookId);
     logger.info('Response cached');
   } catch (error) {
     logger.warn('Cache save failed:', error);

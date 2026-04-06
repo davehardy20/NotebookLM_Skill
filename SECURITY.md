@@ -19,7 +19,7 @@ We follow responsible disclosure practices and will acknowledge receipt within 4
 
 ### Credential Storage (AES-256-GCM)
 
-Browser authentication state (cookies, session tokens) is encrypted at rest using AES-256-GCM:
+Browser authentication state, cached responses, and query history are encrypted at rest using AES-256-GCM:
 
 - **Algorithm**: AES-256-GCM (authenticated encryption)
 - **Key Derivation**: scrypt (N=16384, r=8, p=1)
@@ -27,22 +27,22 @@ Browser authentication state (cookies, session tokens) is encrypted at rest usin
 - **IV**: 12 bytes (random, GCM recommended)
 - **Storage Format**: `ENC:v1:base64(salt:iv:ciphertext:authTag)`
 
-To enable encryption:
+To use authentication safely, encryption must be configured first:
 
 ```bash
 export STATE_ENCRYPTION_KEY="your-32-character-key-here"
 notebooklm auth setup
 ```
 
-**Migration**: Existing unencrypted state files are automatically migrated to encrypted format with backups created.
+**Important**: Authentication now refuses to read or write plaintext auth data. If you have an older unencrypted `auth.json`, delete it, set `STATE_ENCRYPTION_KEY`, and authenticate again.
 
 ### File Permissions
 
 Sensitive data files enforce strict Unix permissions:
 
 - **Data directory** (`~/.claude/skills/notebooklm/data/`): 700 (user rwx only)
-- **State files** (state.json, auth_info.json): 600 (user rw only)
-- **Cache files**: 600 (user rw only)
+- **State files** (state.json, auth_info.json, auth.json): 600 (user rw only)
+- **Cache/history files**: 600 (user rw only)
 
 Permissions are validated and auto-corrected on application startup.
 
@@ -67,7 +67,7 @@ Parallel notebook queries are rate-limited to prevent resource exhaustion:
 
 ### Production Deployment
 
-1. **Enable encryption** (required for production):
+1. **Configure encryption** (required):
 
    ```bash
    export STATE_ENCRYPTION_KEY=$(openssl rand -base64 32)
@@ -94,6 +94,7 @@ Parallel notebook queries are rate-limited to prevent resource exhaustion:
 - Do not commit encryption keys to version control
 - Use `.env` file with proper `.gitignore` exclusions
 - Rotate encryption keys periodically
+- Older plaintext cache/history files are migrated to encrypted storage the next time they are loaded with a valid key
 
 ### Access Control
 

@@ -1,14 +1,21 @@
 import { readFileSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { lstat, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { join, resolve } from 'node:path';
 import { REQUIRED_COOKIES } from '../api/constants.js';
 import { CookieValidationError } from '../api/errors.js';
 import { NotebookClient } from '../api/notebooks.js';
 import type { AuthTokens, Cookie } from '../api/types.js';
+import {
+  isEncrypted,
+  parseStateData,
+  requireEncryptionKeyFromEnv,
+  serializeStateData,
+} from '../core/crypto.js';
 import { Paths } from '../core/paths.js';
 import { CDPAuthManager, type CDPAuthResult } from './cdp-auth.js';
 
 const AUTH_FILE = 'auth.json';
+const MAX_IMPORT_FILE_SIZE_BYTES = 1024 * 1024;
 
 export interface AuthStatus {
   authenticated: boolean;
@@ -27,7 +34,8 @@ export class AuthManager {
   }
 
   async importFromFile(filePath: string): Promise<AuthTokens> {
-    const content = readFileSync(filePath, 'utf-8');
+    const validatedPath = await this.validateImportPath(filePath);
+    const content = readFileSync(validatedPath, 'utf-8');
 
     // Try JSON format first
     try {
@@ -108,17 +116,60 @@ export class AuthManager {
     }
   }
 
+  private async validateImportPath(filePath: string): Promise<string> {
+    if (!filePath || filePath.includes('\0')) {
+      throw new Error('Invalid cookies file path.');
+    }
+
+    const resolvedPath = resolve(filePath);
+    const stats = await lstat(resolvedPath);
+
+    if (stats.isSymbolicLink()) {
+      throw new Error(
+        'Refusing to import cookies from a symbolic link. Use a regular file instead.'
+      );
+    }
+
+    if (!stats.isFile()) {
+      throw new Error('Cookies import path must point to a regular file.');
+    }
+
+    if (stats.size <= 0) {
+      throw new Error('Cookies file is empty.');
+    }
+
+    if (stats.size > MAX_IMPORT_FILE_SIZE_BYTES) {
+      throw new Error(
+        'Cookies file is too large. Expected a small JSON or Netscape cookies export.'
+      );
+    }
+
+    return resolvedPath;
+  }
+
   async saveAuth(tokens: AuthTokens): Promise<void> {
     await mkdir(this.paths.dataDir, { recursive: true });
-    await writeFile(this.authPath, JSON.stringify(tokens, null, 2), { mode: 0o600 });
+    const encryptionKey = requireEncryptionKeyFromEnv();
+    const serialized = serializeStateData(tokens, encryptionKey);
+    await writeFile(this.authPath, serialized, { mode: 0o600 });
   }
 
   async loadAuth(): Promise<AuthTokens | null> {
     try {
       const content = await readFile(this.authPath, 'utf-8');
-      return JSON.parse(content) as AuthTokens;
-    } catch {
-      return null;
+      if (!isEncrypted(content)) {
+        throw new Error(
+          'Existing authentication data is stored insecurely. Delete auth.json and re-authenticate after setting STATE_ENCRYPTION_KEY.'
+        );
+      }
+
+      return parseStateData(content, requireEncryptionKeyFromEnv()) as AuthTokens;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return null;
+      }
+
+      throw error;
     }
   }
 

@@ -13,8 +13,15 @@ import { createHash } from 'node:crypto';
 import { chmod, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { z } from 'zod';
+import {
+  isEncrypted,
+  parseStateData,
+  requireEncryptionKeyFromEnv,
+  serializeStateData,
+} from '../core/crypto.js';
 import { logger } from '../core/logger.js';
 import { Paths } from '../core/paths.js';
+import { containsSensitiveContent } from '../core/security.js';
 import { type CacheEntry, CacheEntrySchema, type CacheStats } from '../types/cache.js';
 
 const DEFAULT_MAX_SIZE = 100;
@@ -105,7 +112,6 @@ export class ResponseCache {
   private readonly maxSize: number;
   private readonly ttlSeconds: number;
   private readonly cacheFile: string;
-  private readonly sensitiveKeywords: readonly string[];
 
   // Map maintains insertion order in ES6+, perfect for LRU
   private cache: Map<string, InternalCacheEntry> = new Map();
@@ -123,19 +129,6 @@ export class ResponseCache {
   constructor(maxSize?: number, ttlSeconds?: number, cacheFile?: string) {
     this.maxSize = maxSize ?? DEFAULT_MAX_SIZE;
     this.ttlSeconds = ttlSeconds ?? DEFAULT_TTL_SECONDS;
-
-    this.sensitiveKeywords = [
-      'password',
-      'ssn',
-      'credit card',
-      'secret',
-      'api key',
-      'token',
-      'credential',
-      'private key',
-      'apikey',
-      'auth',
-    ];
 
     if (cacheFile) {
       this.cacheFile = cacheFile;
@@ -167,8 +160,7 @@ export class ResponseCache {
    * Check if content contains sensitive keywords (PII, credentials, etc.)
    */
   private isSensitiveContent(question: string, answer: string): boolean {
-    const content = `${question} ${answer}`.toLowerCase();
-    return this.sensitiveKeywords.some(keyword => content.includes(keyword));
+    return containsSensitiveContent(question, answer);
   }
 
   /**
@@ -177,7 +169,8 @@ export class ResponseCache {
   private async load(): Promise<void> {
     try {
       const data = await readFile(this.cacheFile, 'utf-8');
-      const parsed = JSON.parse(data);
+      const wasEncrypted = isEncrypted(data);
+      const parsed = parseStateData(data, requireEncryptionKeyFromEnv());
       const state = PersistedCacheStateSchema.parse(parsed);
 
       for (const [key, entry] of Object.entries(state.entries)) {
@@ -195,6 +188,10 @@ export class ResponseCache {
 
       this.stats = { ...state.stats } as typeof this.stats;
       logger.info(`Loaded ${this.cache.size} cached responses`);
+
+      if (!wasEncrypted) {
+        await this.persistToFile();
+      }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         logger.debug('Cache file does not exist, starting with empty cache');
@@ -224,7 +221,8 @@ export class ResponseCache {
         savedAt: Date.now() / 1000,
       };
 
-      await writeFile(this.cacheFile, JSON.stringify(state, null, 2), 'utf-8');
+      const serialized = serializeStateData(state, requireEncryptionKeyFromEnv());
+      await writeFile(this.cacheFile, serialized, 'utf-8');
 
       const paths = Paths.getInstance();
       if (paths.isUnix()) {
@@ -278,8 +276,7 @@ export class ResponseCache {
 
     // Skip caching sensitive content (PII, credentials, etc.)
     if (this.isSensitiveContent(question, answer)) {
-      const truncatedQuestion = question.length > 50 ? `${question.substring(0, 50)}...` : question;
-      logger.warn(`Skipping cache of sensitive content: ${truncatedQuestion}`);
+      logger.warn('Skipping cache of sensitive content');
       return;
     }
 

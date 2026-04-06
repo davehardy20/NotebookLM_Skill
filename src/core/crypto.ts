@@ -15,6 +15,7 @@ import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:
 import { createChildLogger } from './logger.js';
 
 const logger = createChildLogger('Crypto');
+const MIN_ENCRYPTION_KEY_LENGTH = 32;
 
 /**
  * Encryption envelope format version for future compatibility
@@ -62,8 +63,10 @@ function deriveKey(password: string, salt: Buffer): Buffer {
 export function encryptState(data: object, key: string): string {
   try {
     // Validate key
-    if (!key || key.length < 8) {
-      throw new Error('Encryption key must be at least 8 characters long');
+    if (!key || key.length < MIN_ENCRYPTION_KEY_LENGTH) {
+      throw new Error(
+        `Encryption key must be at least ${MIN_ENCRYPTION_KEY_LENGTH} characters long`
+      );
     }
 
     // Generate random salt and IV
@@ -106,8 +109,10 @@ export function encryptState(data: object, key: string): string {
 export function decryptState(encryptedData: string, key: string): object {
   try {
     // Validate key
-    if (!key || key.length < 8) {
-      throw new Error('Encryption key must be at least 8 characters long');
+    if (!key || key.length < MIN_ENCRYPTION_KEY_LENGTH) {
+      throw new Error(
+        `Encryption key must be at least ${MIN_ENCRYPTION_KEY_LENGTH} characters long`
+      );
     }
 
     // Remove version prefix if present
@@ -201,7 +206,7 @@ export function isEncrypted(data: string): boolean {
 export function isValidEncryptionKey(key: string | undefined): boolean {
   if (!key) return false;
   if (typeof key !== 'string') return false;
-  if (key.length < 8) return false;
+  if (key.length < MIN_ENCRYPTION_KEY_LENGTH) return false;
   return true;
 }
 
@@ -227,6 +232,16 @@ export function getEncryptionKeyFromEnv(): string | undefined {
     return key;
   }
   return undefined;
+}
+
+export function requireEncryptionKeyFromEnv(): string {
+  const key = getEncryptionKeyFromEnv();
+  if (!key) {
+    throw new Error(
+      `STATE_ENCRYPTION_KEY must be set to at least ${MIN_ENCRYPTION_KEY_LENGTH} characters to securely store NotebookLM local data.`
+    );
+  }
+  return key;
 }
 
 /**

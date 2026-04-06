@@ -6,6 +6,7 @@ import { addCacheCommand } from './commands/cache.js';
 import { addHistoryCommand } from './commands/history.js';
 import { addNotebookCommand } from './commands/notebook.js';
 import { addPerfCommand } from './commands/perf.js';
+import { getCliErrorMessage } from './core/cli-errors.js';
 import { logger } from './core/logger.js';
 import { Paths } from './core/paths.js';
 
@@ -60,6 +61,6 @@ if (process.argv.length <= 2) {
 }
 
 program.parseAsync(process.argv).catch(error => {
-  console.error('Fatal error:', error);
+  console.error('Fatal error:', getCliErrorMessage(error));
   process.exit(1);
 });

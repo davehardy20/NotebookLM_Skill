@@ -14,6 +14,7 @@ The NotebookLM Skill allows you to query your Google NotebookLM notebooks direct
 mkdir -p ~/.claude/skills && cd ~/.claude/skills && \
 git clone https://github.com/davehardy20/NotebookLM_Skill.git notebooklm && \
 cd notebooklm && bun install && bun run build && \
+export STATE_ENCRYPTION_KEY="replace-this-with-a-unique-32-plus-character-secret" && \
 notebooklm auth setup
 ```
 
@@ -28,7 +29,12 @@ notebooklm auth setup
     ```
 2.  **Install Dependencies**: Use `bun install` (recommended) or `npm install`.
 3.  **Build**: Run `bun run build` to generate the `dist/cli.cjs` executable.
-4.  **Authenticate**: Run `notebooklm auth setup`. This will open a browser for Google login.
+4.  **Set Required Encryption Key**:
+    ```bash
+    export STATE_ENCRYPTION_KEY="replace-this-with-a-unique-32-plus-character-secret"
+    ```
+    This key is required to encrypt local authentication, cache, and query history data.
+5.  **Authenticate**: Run `notebooklm auth setup`. This will open a browser for Google login.
 
 ---
 
@@ -78,7 +84,15 @@ Before proceeding, verify the environment meets these requirements:
     notebooklm --help
     ```
 
-5.  **Authentication Setup**:
+5.  **Set Required Encryption Key**:
+
+    ```bash
+    export STATE_ENCRYPTION_KEY="replace-this-with-a-unique-32-plus-character-secret"
+    ```
+
+    _Note_: This is mandatory before auth setup. The key must be at least 32 characters and should be stored securely outside version control.
+
+6.  **Authentication Setup**:
     This step requires user interaction as it opens a browser window for Google OAuth.
 
     ```bash
@@ -87,7 +101,7 @@ Before proceeding, verify the environment meets these requirements:
 
     _Note_: Instruct the human to complete the login in the opened browser.
 
-6.  **Add Initial Notebook**:
+7.  **Add Initial Notebook**:
     Once authenticated, add a notebook to the library.
     ```bash
     notebooklm notebook add "https://notebooklm.google.com/notebook/YOUR_ID" \
@@ -114,6 +128,7 @@ Run these to confirm a successful setup:
 - **Data Path**: `~/.claude/skills/notebooklm/data/`
 - **Logs**: `~/.claude/skills/notebooklm/data/logs/`
 - **Environment Variables**:
+  - `STATE_ENCRYPTION_KEY`: required, 32+ characters, used to encrypt local auth/cache/history data.
   - `NOTEBOOKLM_LOG_LEVEL`: set to `debug` for detailed execution logs.
 
 ---

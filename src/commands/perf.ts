@@ -5,6 +5,7 @@
 
 import chalk from 'chalk';
 import type { Command } from 'commander';
+import { getCliErrorMessage } from '../core/cli-errors.js';
 import { getMonitor } from '../performance/performance-monitor.js';
 
 /**
@@ -226,11 +227,7 @@ async function handleSummaryCommand(): Promise<void> {
  * @param error - The error to handle
  */
 function handleError(error: unknown): void {
-  if (error instanceof Error) {
-    console.error(`\n${chalk.red('❌ Error:')} ${error.message}`);
-  } else {
-    console.error(`\n${chalk.red('❌ Unknown error occurred')}`);
-  }
+  console.error(`\n${chalk.red('❌ Error:')} ${getCliErrorMessage(error)}`);
 
   process.exit(1);
 }
