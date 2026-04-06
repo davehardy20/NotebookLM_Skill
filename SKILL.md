@@ -215,7 +215,8 @@ notebooklm history clear       # Clear conversation history
 This is a TypeScript/Node.js project with the following structure:
 
 - Built CLI located at `dist/cli.cjs`
-- Compiled binary at `bin/notebooklm` for easy execution
+- Published command routed through `scripts/notebooklm.cjs`
+- Compiled Bun binary at `bin/notebooklm` when available for faster execution
 - All dependencies managed via pnpm
 
 ### Installation

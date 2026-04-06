@@ -41,6 +41,8 @@ npm install
 bun run build
 
 # This creates the compiled CLI in dist/cli.cjs
+# If Bun is installed, `npm install` or `bun install` can also compile
+# a native `bin/notebooklm` binary while keeping the Node.js wrapper fallback.
 ```
 
 ### Step 4: Verify Installation

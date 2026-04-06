@@ -116,7 +116,8 @@ cd notebooklm
 # Install dependencies with bun
 bun install
 
-# The binary will be automatically compiled during postinstall
+# `notebooklm` will always be exposed through the wrapper script.
+# If Bun is installed, postinstall will also compile a native Bun binary.
 # Or manually build it:
 bun run build:binary
 ```
