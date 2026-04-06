@@ -1,44 +1,24 @@
-/**
- * Ask Command Handler
- * CLI command for asking questions to NotebookLM
- */
-
 import type { Command } from 'commander';
 import ora from 'ora';
-import { askNotebookLM, resolveNotebookUrl } from '../ask.js';
-import { AuthExpiredError, BrowserCrashedError } from '../browser/index.js';
+import { askQuestion } from '../ask.js';
 import { AuthError, NotFoundError } from '../core/errors.js';
-import { validateNotebookUrl } from '../core/validation.js';
+import { extractNotebookIdFromUrl, validateNotebookUrl } from '../core/validation.js';
+import { getNotebookLibrary } from '../notebook/index.js';
 
-/**
- * Options for the ask command
- */
 interface AskCommandOptions {
   notebook?: string;
   notebookUrl?: string;
   notebookId?: string;
-  notebookIds?: string;
-  parallel?: boolean;
   noCache?: boolean;
-  noPool?: boolean;
 }
 
-/**
- * Add the 'ask' command to the CLI program
- *
- * @param program - The Commander program instance
- */
 export function addAskCommand(program: Command): void {
   program
     .command('ask <question>')
-    .description('Ask a question to NotebookLM with optional notebook selection')
-    .option('-n, --notebook <id>', 'notebook ID to use (alias for --notebook-id)')
-    .option('--notebook-id <id>', 'notebook ID to use')
-    .option('--notebook-url <url>', 'direct notebook URL to use')
-    .option('--notebook-ids <ids>', 'comma-separated list of notebook IDs for parallel query')
-    .option('--parallel', 'query multiple notebooks in parallel')
-    .option('--no-cache', 'disable response caching')
-    .option('--no-pool', 'disable browser pool (use legacy mode)')
+    .description('Ask a question to NotebookLM')
+    .option('-n, --notebook <id>', 'Notebook ID to query')
+    .option('-u, --notebook-url <url>', 'Notebook URL to query')
+    .option('--no-cache', 'Skip cache and force fresh query')
     .action(async (question: string, options: AskCommandOptions) => {
       try {
         await handleAskCommand(question, options);
@@ -48,89 +28,73 @@ export function addAskCommand(program: Command): void {
     });
 }
 
-/**
- * Handle the ask command execution
- *
- * @param question - The question to ask
- * @param options - Command options
- */
 async function handleAskCommand(question: string, options: AskCommandOptions): Promise<void> {
-  const spinner = ora('Resolving notebook...').start();
+  const notebookId = await resolveNotebookId(options);
+
+  if (!notebookId) {
+    console.error('Error: No notebook specified. Use -n or -u option, or set an active notebook.');
+    process.exit(1);
+  }
+
+  const spinner = ora('Asking NotebookLM...').start();
 
   try {
-    if (options.notebookUrl) {
-      validateNotebookUrl(options.notebookUrl);
-    }
-
-    // Resolve notebook URL from options
-    const notebookUrl = await resolveNotebookUrl({
-      notebookUrl: options.notebookUrl,
-      notebookId: options.notebookId ?? options.notebook,
-      useActive: true,
-    });
-
-    if (!notebookUrl) {
-      spinner.fail(
-        'No notebook selected. Use --notebook-id, --notebook-url, or select a notebook first.'
-      );
-      return;
-    }
-
-    spinner.text = 'Asking NotebookLM...';
-
-    // Query NotebookLM
-    const result = await askNotebookLM(question, notebookUrl, {
+    const result = await askQuestion(question, notebookId, {
       useCache: !options.noCache,
-      useSessionPool: !options.noPool,
     });
 
-    if (!result) {
-      spinner.fail('Failed to get answer from NotebookLM');
-      return;
+    if (!result.success) {
+      spinner.fail('Query failed');
+      console.error(`Error: ${result.error}`);
+      process.exit(1);
     }
 
-    spinner.stop();
+    spinner.succeed('Got answer');
 
-    // Print the answer
-    console.log('\n');
-    console.log(result.fullResponse);
-    console.log('\n');
+    console.log('\n' + result.answer);
 
-    // Print metadata
-    const meta = [];
-    if (result.fromCache) meta.push('from cache');
-    if (result.usePool) meta.push('using browser pool');
-    if (meta.length > 0) {
-      console.log(`\n[${meta.join(', ')}]`);
+    if (result.fromCache) {
+      console.log('\n[Cached result]');
     }
-    console.log(`Time: ${result.duration.toFixed(2)}s`);
+
+    console.log(`\n[Query took ${result.duration.toFixed(2)}s]`);
   } catch (error) {
-    spinner.fail('Error asking question');
+    spinner.fail('Query failed');
     throw error;
   }
 }
 
-/**
- * Handle errors from the ask command
- *
- * @param error - The error to handle
- */
-function handleError(error: unknown): void {
-  if (error instanceof Error) {
-    console.error(`\n❌ Error: ${error.message}`);
+async function resolveNotebookId(options: AskCommandOptions): Promise<string | null> {
+  if (options.notebookId || options.notebook) {
+    return options.notebookId || options.notebook || null;
+  }
 
-    // Check for specific error types using instanceof
-    if (error instanceof AuthExpiredError || error instanceof AuthError) {
-      console.error('💡 Hint: Run "notebooklm auth refresh" to refresh authentication');
-    } else if (error instanceof BrowserCrashedError) {
-      console.error('💡 Hint: Browser crashed. Try again or use --no-pool flag');
-    } else if (error instanceof NotFoundError) {
-      console.error(
-        '💡 Hint: Notebook not found. Check --notebook-id or select an active notebook'
-      );
-    }
+  if (options.notebookUrl) {
+    validateNotebookUrl(options.notebookUrl);
+    return extractNotebookIdFromUrl(options.notebookUrl);
+  }
+
+  const library = getNotebookLibrary();
+  await library.initialize();
+  const active = library.getActiveNotebook();
+
+  if (!active) {
+    return null;
+  }
+
+  return extractNotebookIdFromUrl(active.url);
+}
+
+function handleError(error: unknown): void {
+  if (error instanceof AuthError) {
+    console.error(`Authentication error: ${error.message}`);
+    console.error('Run "notebooklm auth import --file cookies.txt" to authenticate');
+  } else if (error instanceof NotFoundError) {
+    console.error(`Not found: ${error.message}`);
+  } else if (error instanceof Error) {
+    console.error(`Error: ${error.message}`);
   } else {
-    console.error('\n❌ Unknown error occurred');
+    console.error('An unknown error occurred');
   }
 
   process.exit(1);

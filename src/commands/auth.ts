@@ -1,45 +1,43 @@
-/**
- * Auth Command Handler
- * CLI commands for authentication management
- */
-
 import chalk from 'chalk';
 import type { Command } from 'commander';
 import ora from 'ora';
-import { getAuthManager } from '../browser/auth-manager.js';
+import { AuthenticationError } from '../api/errors.js';
+import { NotebookClient } from '../api/notebooks.js';
+import type { AuthTokens } from '../api/types.js';
+import { getAuthManager } from '../auth/auth-manager.js';
 
-/**
- * Options for auth setup command
- */
-interface AuthSetupOptions {
-  headless?: boolean;
-  timeout?: string;
+interface AuthImportOptions {
+  file?: string;
+  clipboard?: boolean;
 }
 
-/**
- * Options for auth validate command
- */
-interface AuthValidateOptions {
-  headless?: boolean;
-  timeout?: string;
+interface AuthLoginOptions {
+  port?: string;
 }
 
-/**
- * Add 'auth' subcommands to the CLI program
- *
- * @param program - The Commander program instance
- */
 export function addAuthCommand(program: Command): void {
   const authCommand = program.command('auth').description('Authentication management commands');
 
   authCommand
-    .command('setup')
-    .description('Run interactive authentication setup (opens browser)')
-    .option('--headless', 'run browser in headless mode (not recommended for login)')
-    .option('-t, --timeout <minutes>', 'maximum time to wait for login (default: 10)')
-    .action(async (options: AuthSetupOptions) => {
+    .command('login')
+    .description('Authenticate using Chrome DevTools Protocol (CDP)')
+    .option('-p, --port <number>', 'Chrome remote debugging port', '9222')
+    .action(async (options: AuthLoginOptions) => {
       try {
-        await handleSetupCommand(options);
+        await handleLoginCommand(options);
+      } catch (error) {
+        handleError(error);
+      }
+    });
+
+  authCommand
+    .command('import')
+    .description('Import authentication cookies from file')
+    .option('-f, --file <path>', 'Path to cookies file (Netscape format or JSON)')
+    .option('-c, --clipboard', 'Read cookies from clipboard')
+    .action(async (options: AuthImportOptions) => {
+      try {
+        await handleImportCommand(options);
       } catch (error) {
         handleError(error);
       }
@@ -59,11 +57,9 @@ export function addAuthCommand(program: Command): void {
   authCommand
     .command('validate')
     .description('Test if authentication is still valid')
-    .option('--headless', 'run browser in headless mode')
-    .option('-t, --timeout <minutes>', 'validation timeout (default: 1)')
-    .action(async (options: AuthValidateOptions) => {
+    .action(async () => {
       try {
-        await handleValidateCommand(options);
+        await handleValidateCommand();
       } catch (error) {
         handleError(error);
       }
@@ -79,100 +75,80 @@ export function addAuthCommand(program: Command): void {
         handleError(error);
       }
     });
-
-  authCommand
-    .command('reauth')
-    .description('Clear authentication and re-authenticate')
-    .option('--headless', 'run browser in headless mode (not recommended for login)')
-    .option('-t, --timeout <minutes>', 'maximum time to wait for login (default: 10)')
-    .action(async (options: AuthSetupOptions) => {
-      try {
-        await handleReauthCommand(options);
-      } catch (error) {
-        handleError(error);
-      }
-    });
 }
 
-/**
- * Handle auth setup command
- *
- * @param options - Command options
- */
-async function handleSetupCommand(options: AuthSetupOptions): Promise<void> {
-  const timeout = options.timeout ? parseInt(options.timeout, 10) : 10;
-  const spinner = ora('Opening browser for authentication...').start();
+async function handleImportCommand(options: AuthImportOptions): Promise<void> {
+  const spinner = ora('Importing authentication cookies...').start();
 
   try {
     const authManager = getAuthManager();
+    let tokens: AuthTokens;
 
-    spinner.text = 'Waiting for login...';
-    const success = await authManager.setupAuth(options.headless, timeout);
-
-    if (success) {
-      spinner.succeed(chalk.green('Authentication successful!'));
-      console.log('\n✓ You are now authenticated with NotebookLM');
+    if (options.file) {
+      spinner.text = `Reading cookies from ${options.file}...`;
+      tokens = await authManager.importFromFile(options.file);
+    } else if (options.clipboard) {
+      spinner.fail('Clipboard import not yet implemented');
+      console.log(chalk.yellow('Please use --file option instead'));
+      process.exit(1);
     } else {
-      spinner.fail(chalk.red('Authentication failed'));
-      console.log('\n✗ Authentication timed out or failed');
-      console.log('Please try again or check your internet connection');
+      spinner.fail('No input source specified');
+      console.log(chalk.yellow('\nUsage:'));
+      console.log('  notebooklm auth import --file cookies.txt');
+      console.log('\nTo export cookies from Chrome:');
+      console.log('  1. Open Chrome and go to https://notebooklm.google.com');
+      console.log('  2. Open DevTools (F12) → Application → Cookies');
+      console.log('  3. Export cookies or use a browser extension');
       process.exit(1);
     }
+
+    spinner.text = 'Validating cookies...';
+
+    const client = new NotebookClient(tokens);
+    await client.refreshCSRFToken();
+
+    spinner.text = 'Saving authentication...';
+    await authManager.saveAuth(tokens);
+
+    spinner.succeed(chalk.green('Authentication successful!'));
+    console.log('\n✓ You are now authenticated with NotebookLM');
+    console.log(chalk.dim('  CSRF token refreshed and saved'));
   } catch (error) {
-    spinner.fail('Error during authentication setup');
-    throw error;
+    spinner.fail('Authentication import failed');
+    if (error instanceof AuthenticationError) {
+      console.error(chalk.red(`\n${error.message}`));
+    } else if (error instanceof Error) {
+      console.error(chalk.red(`\nError: ${error.message}`));
+    }
+    process.exit(1);
   }
 }
 
-/**
- * Handle auth status command
- */
 async function handleStatusCommand(): Promise<void> {
   const spinner = ora('Checking authentication status...').start();
 
   try {
     const authManager = getAuthManager();
-    const authInfo = await authManager.getAuthInfo();
+    const status = await authManager.getAuthStatus();
 
     spinner.stop();
 
-    if (authInfo.authenticated) {
+    if (status.authenticated) {
       console.log(chalk.green.bold('\n✓ Authentication Status: Authenticated\n'));
 
-      if (authInfo.authenticatedAtIso) {
-        console.log(`Last authenticated: ${authInfo.authenticatedAtIso}`);
+      if (status.expiresAt) {
+        const daysUntilExpiry = Math.floor(
+          (status.expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        );
+        console.log(`Expires in: ${daysUntilExpiry} days (${status.expiresAt.toISOString()})`);
       }
 
-      if (authInfo.stateAgeHours) {
-        const ageHours = authInfo.stateAgeHours;
-        const ageDays = ageHours / 24;
-
-        let ageText: string;
-        if (ageDays >= 1) {
-          ageText = `${ageDays.toFixed(1)} days ago`;
-        } else {
-          ageText = `${ageHours.toFixed(1)} hours ago`;
-        }
-
-        console.log(`Session age: ${ageText}`);
-
-        // Warning if session is old
-        if (ageDays > 7) {
-          console.log(chalk.yellow(`⚠ Warning: Session is ${ageDays.toFixed(1)} days old`));
-          console.log(
-            chalk.yellow(
-              '  Consider running "notebooklm auth validate" or "notebooklm auth reauth"'
-            )
-          );
-        }
-      }
-
-      if (authInfo.stateFile) {
-        console.log(`State file: ${authInfo.stateFile}`);
+      if (status.csrfToken) {
+        console.log(chalk.dim('CSRF token: Available'));
       }
     } else {
       console.log(chalk.red.bold('\n✗ Authentication Status: Not Authenticated\n'));
-      console.log('Run "notebooklm auth setup" to authenticate');
+      console.log('Run "notebooklm auth import --file cookies.txt" to authenticate');
       process.exit(1);
     }
   } catch (error) {
@@ -181,45 +157,33 @@ async function handleStatusCommand(): Promise<void> {
   }
 }
 
-/**
- * Handle auth validate command
- *
- * @param options - Command options
- */
-async function handleValidateCommand(_options: AuthValidateOptions): Promise<void> {
+async function handleValidateCommand(): Promise<void> {
   const spinner = ora('Validating authentication...').start();
 
   try {
     const authManager = getAuthManager();
+    const tokens = await authManager.loadAuth();
 
-    const isAuthenticated = await authManager.isAuthenticated();
-    if (!isAuthenticated) {
+    if (!tokens) {
       spinner.fail(chalk.red('No authentication found'));
-      console.log('\nRun "notebooklm auth setup" to authenticate');
+      console.log('\nRun "notebooklm auth import --file cookies.txt" to authenticate');
       process.exit(1);
     }
 
     spinner.text = 'Testing authentication with NotebookLM...';
-    const isValid = await authManager.validateAuth();
+    const client = new NotebookClient(tokens);
+    await client.listNotebooks();
 
-    if (isValid) {
-      spinner.succeed(chalk.green('Authentication is valid'));
-      console.log('\n✓ Your credentials are working correctly');
-    } else {
-      spinner.fail(chalk.red('Authentication is invalid'));
-      console.log('\n✗ Your session may have expired');
-      console.log('Run "notebooklm auth reauth" to re-authenticate');
-      process.exit(1);
-    }
-  } catch (error) {
-    spinner.fail('Error validating authentication');
-    throw error;
+    spinner.succeed(chalk.green('Authentication is valid'));
+    console.log('\n✓ Your credentials are working correctly');
+  } catch (_error) {
+    spinner.fail(chalk.red('Authentication is invalid'));
+    console.log('\n✗ Your session may have expired');
+    console.log('Run "notebooklm auth import --file cookies.txt" to re-authenticate');
+    process.exit(1);
   }
 }
 
-/**
- * Handle auth clear command
- */
 async function handleClearCommand(): Promise<void> {
   const spinner = ora('Clearing authentication data...').start();
 
@@ -230,13 +194,10 @@ async function handleClearCommand(): Promise<void> {
     if (success) {
       spinner.succeed(chalk.green('Authentication data cleared'));
       console.log('\n✓ All authentication data has been removed');
-      console.log('Run "notebooklm auth setup" to authenticate again');
+      console.log('Run "notebooklm auth import --file cookies.txt" to authenticate again');
     } else {
       spinner.fail(chalk.red('Failed to clear authentication'));
-      console.log('\n✗ Some authentication files could not be removed');
-      console.log('You may need to manually delete the following directories:');
-      console.log('  - ~/.local/state/notebooklm/');
-      console.log('  - ~/.local/share/notebooklm/');
+      console.log('\n✗ Authentication file could not be removed');
       process.exit(1);
     }
   } catch (error) {
@@ -245,49 +206,44 @@ async function handleClearCommand(): Promise<void> {
   }
 }
 
-/**
- * Handle auth reauth command
- *
- * @param options - Command options
- */
-async function handleReauthCommand(options: AuthSetupOptions): Promise<void> {
-  const timeout = options.timeout ? parseInt(options.timeout, 10) : 10;
-  const spinner = ora('Clearing existing authentication...').start();
+async function handleLoginCommand(options: AuthLoginOptions): Promise<void> {
+  const port = options.port ? parseInt(options.port, 10) : 9222;
 
-  try {
-    const authManager = getAuthManager();
+  console.log(chalk.blue('\n🔐 NotebookLM CDP Authentication\n'));
+  console.log('This will connect to Chrome and extract authentication cookies.');
+  console.log(chalk.dim(`Using Chrome remote debugging port: ${port}\n`));
 
-    spinner.text = 'Clearing existing authentication...';
-    await authManager.clearAuth();
+  const authManager = getAuthManager();
+  const result = await authManager.loginWithCDP(port);
 
-    spinner.text = 'Opening browser for authentication...';
-    const success = await authManager.setupAuth(options.headless, timeout);
+  if (!result.success) {
+    console.log(chalk.red('\n❌ Authentication failed'));
+    console.log(chalk.yellow(result.error));
 
-    if (success) {
-      spinner.succeed(chalk.green('Re-authentication successful!'));
-      console.log('\n✓ You are now authenticated with NotebookLM');
+    if (result.needsLogin) {
+      console.log(chalk.dim('\nPlease make sure you are logged in to NotebookLM in Chrome.'));
     } else {
-      spinner.fail(chalk.red('Re-authentication failed'));
-      console.log('\n✗ Authentication timed out or failed');
-      console.log('Please try again or check your internet connection');
-      process.exit(1);
+      console.log(chalk.dim('\nTo start Chrome with remote debugging:'));
+      console.log(
+        chalk.dim(
+          '  macOS: /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222'
+        )
+      );
+      console.log(chalk.dim('  Linux: google-chrome --remote-debugging-port=9222'));
     }
-  } catch (error) {
-    spinner.fail('Error during re-authentication');
-    throw error;
+
+    process.exit(1);
   }
+
+  console.log(chalk.green('\n✓ Authentication successful!'));
+  console.log(chalk.dim('Cookies have been saved and are ready to use.'));
 }
 
-/**
- * Handle errors from auth commands
- *
- * @param error - The error to handle
- */
 function handleError(error: unknown): void {
   if (error instanceof Error) {
-    console.error(`\n${chalk.red('❌ Error:')} ${error.message}`);
+    console.error('\n' + chalk.red('❌ Error:') + ' ' + error.message);
   } else {
-    console.error(`\n${chalk.red('❌ Unknown error occurred')}`);
+    console.error('\n' + chalk.red('❌ Unknown error occurred'));
   }
 
   process.exit(1);

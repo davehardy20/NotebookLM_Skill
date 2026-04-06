@@ -6,7 +6,7 @@
 import chalk from 'chalk';
 import type { Command } from 'commander';
 import ora from 'ora';
-import { askNotebookLM } from '../ask.js';
+import { askQuestion } from '../ask.js';
 import { QueryHistory, resetQueryHistory } from '../history/query-history.js';
 import { getNotebookLibrary } from '../notebook/notebook-manager.js';
 
@@ -178,13 +178,13 @@ async function handleReplayCommand(
       process.exit(1);
     }
 
-    const result = await askNotebookLM(record.question, notebook.url, {
+    const result = await askQuestion(record.question, record.notebookId, {
       useCache: options.useCache,
-      useSessionPool: options.usePool,
     });
 
-    if (!result) {
+    if (!result.success) {
       spinner.fail('Failed to get answer from NotebookLM');
+      console.error(result.error);
       process.exit(1);
     }
 

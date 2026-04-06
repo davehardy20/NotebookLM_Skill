@@ -6,7 +6,6 @@
 import { chmod, mkdir, stat } from 'node:fs/promises';
 import { homedir, platform } from 'node:os';
 import { join } from 'node:path';
-import { logger } from './logger.js';
 
 /**
  * Paths manager following XDG Base Directory spec
@@ -83,7 +82,7 @@ export class Paths {
       await mkdir(this.dataDir, { recursive: true, mode: 0o700 });
       await chmod(this.dataDir, 0o700);
     } catch (error) {
-      logger.warn(
+      console.warn(
         `Could not set permissions on ${this.dataDir}: ${error instanceof Error ? error.message : String(error)}`
       );
     }
@@ -97,7 +96,7 @@ export class Paths {
     try {
       await chmod(filePath, 0o600);
     } catch (error) {
-      logger.warn(
+      console.warn(
         `Could not set permissions on ${filePath}: ${error instanceof Error ? error.message : String(error)}`
       );
     }
@@ -119,7 +118,7 @@ export class Paths {
       if (dataMode & 0o007) {
         issues.push(`data directory: ${dataMode.toString(8)} (expected 700)`);
         await chmod(this.dataDir, 0o700);
-        logger.warn(`[Security] Fixed data directory permissions: ${this.dataDir}`);
+        console.warn(`[Security] Fixed data directory permissions: ${this.dataDir}`);
       }
 
       const browserStateStats = await stat(this.browserStateDir).catch(() => null);
@@ -128,7 +127,7 @@ export class Paths {
         if (browserStateMode & 0o007) {
           issues.push(`browser_state directory: ${browserStateMode.toString(8)} (expected 700)`);
           await chmod(this.browserStateDir, 0o700);
-          logger.warn(
+          console.warn(
             `[Security] Fixed browser_state directory permissions: ${this.browserStateDir}`
           );
         }
@@ -140,7 +139,7 @@ export class Paths {
         if (cacheMode & 0o007) {
           issues.push(`cache directory: ${cacheMode.toString(8)} (expected 700)`);
           await chmod(this.cacheDir, 0o700);
-          logger.warn(`[Security] Fixed cache directory permissions: ${this.cacheDir}`);
+          console.warn(`[Security] Fixed cache directory permissions: ${this.cacheDir}`);
         }
       }
 
@@ -154,7 +153,7 @@ export class Paths {
           if (fileMode & 0o077) {
             issues.push(`${file}: ${fileMode.toString(8)} (expected 600)`);
             await chmod(file, 0o600);
-            logger.warn(`[Security] Fixed file permissions: ${file}`);
+            console.warn(`[Security] Fixed file permissions: ${file}`);
           }
         } catch {
           /* ignore permission check errors */
@@ -162,13 +161,13 @@ export class Paths {
       }
 
       if (issues.length > 0) {
-        logger.warn(
+        console.warn(
           `[Security] Found and fixed ${issues.length} insecure permission(s):`,
           issues.join(', ')
         );
       }
     } catch (error) {
-      logger.error(
+      console.error(
         `[Security] Error checking permissions: ${error instanceof Error ? error.message : String(error)}`
       );
     }

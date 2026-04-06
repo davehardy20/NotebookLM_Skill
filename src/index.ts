@@ -1,44 +1,30 @@
 // NotebookLM Skill - TypeScript Edition
 // Main entry point for programmatic API usage
 
+// API client exports
+export { BaseClient, NotebookClient, REQUIRED_COOKIES, RPC_IDS } from './api/index.js';
+export type {
+  AuthTokens,
+  Cookie,
+  Notebook,
+  QueryResult as APIQueryResult,
+  Reference,
+  Source,
+} from './api/types.js';
 // Query interface exports (main API)
-export {
-  askNotebookLM,
-  askNotebookLMLegacy,
-  askNotebookLMOptimized,
-  DEFAULT_CONFIG,
-  FOLLOW_UP_REMINDER,
-  getAvailableNotebooks,
-  type QueryConfig,
-  type QueryResult,
-  query,
-  resolveNotebookUrl,
-} from './ask.js';
-// Browser exports
-export { AuthManager, getAuthManager, resetAuthManager } from './browser/auth-manager.js';
-export {
-  AuthExpiredError,
-  BrowserCrashedError,
-  getPool,
-  NotebookLMSession,
-  SessionPool,
-  sessionPool,
-} from './browser/browser-pool.js';
-export {
-  BrowserFactory,
-  StealthUtils,
-  setupMinimalBlocking,
-  setupResourceBlocking,
-  waitForResponseOptimized,
-} from './browser/browser-utils.js';
+export { askQuestion, DEFAULT_CONFIG, type QueryConfig, type QueryResult } from './ask.js';
+export type { AuthStatus } from './auth/auth-manager.js';
+// Auth exports
+export { AuthManager, getAuthManager } from './auth/auth-manager.js';
+
 // Cache exports
 export { getCache, ResponseCache, resetCache } from './cache/response-cache.js';
+
 // Core exports
 export { type Config, config, getConfig, resetConfig } from './core/config.js';
 export {
   AppError,
   AuthError,
-  BrowserError,
   ConfigError,
   isAppError,
   NotebookError,

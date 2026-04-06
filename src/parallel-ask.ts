@@ -1,11 +1,6 @@
-/**
- * Parallel query execution for NotebookLM
- * Query multiple notebooks simultaneously and aggregate results
- */
-
 import chalk from 'chalk';
 import ora from 'ora';
-import { askNotebookLM } from './ask.js';
+import { askQuestion } from './ask.js';
 import { config } from './core/config.js';
 import { ValidationError } from './core/errors.js';
 import { getNotebookLibrary } from './notebook/notebook-manager.js';
@@ -21,12 +16,8 @@ export interface ParallelQueryResult {
 
 export interface ParallelQueryOptions {
   useCache?: boolean;
-  usePool?: boolean;
 }
 
-/**
- * Query multiple notebooks in parallel
- */
 export async function queryMultipleNotebooks(
   question: string,
   notebookIds: string[],
@@ -46,7 +37,6 @@ export async function queryMultipleNotebooks(
 
   console.log(chalk.blue(`\n🔄 Querying ${notebookIds.length} notebooks in parallel...\n`));
 
-  // Create promises for all queries
   const queryPromises = notebookIds.map(async notebookId => {
     const notebook = library.getNotebook(notebookId);
     if (!notebook) {
@@ -67,14 +57,13 @@ export async function queryMultipleNotebooks(
     }).start();
 
     try {
-      const result = await askNotebookLM(question, notebook.url, {
+      const result = await askQuestion(question, notebookId, {
         useCache: options.useCache ?? true,
-        useSessionPool: options.usePool ?? true,
       });
 
       const duration = Date.now() - startTime;
 
-      if (result) {
+      if (result.success) {
         spinner.succeed(`${notebook.name} (${duration}ms)`);
         return {
           notebookId,
@@ -84,13 +73,13 @@ export async function queryMultipleNotebooks(
           duration,
         };
       } else {
-        spinner.fail(`${notebook.name} - No response`);
+        spinner.fail(`${notebook.name} - ${result.error || 'No response'}`);
         return {
           notebookId,
           notebookName: notebook.name,
           answer: null,
           success: false,
-          error: 'No response received',
+          error: result.error || 'No response received',
           duration,
         };
       }
@@ -110,10 +99,8 @@ export async function queryMultipleNotebooks(
     }
   });
 
-  // Execute all queries in parallel
   const settledResults = await Promise.allSettled(queryPromises);
 
-  // Process results
   settledResults.forEach(result => {
     if (result.status === 'fulfilled') {
       results.push(result.value);
@@ -129,7 +116,6 @@ export async function queryMultipleNotebooks(
     }
   });
 
-  // Display summary
   const successful = results.filter(r => r.success).length;
   const failed = results.filter(r => !r.success).length;
   const avgDuration = results.reduce((sum, r) => sum + r.duration, 0) / results.length;
@@ -140,9 +126,6 @@ export async function queryMultipleNotebooks(
   return results;
 }
 
-/**
- * Format parallel query results for display
- */
 export function formatParallelResults(results: ParallelQueryResult[]): string {
   const lines: string[] = [];
 
