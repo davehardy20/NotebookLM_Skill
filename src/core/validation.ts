@@ -103,3 +103,20 @@ export function normalizeNotebookUrl(url: string): string {
   }
   return parsed.toString();
 }
+
+export function extractNotebookIdFromUrl(url: string): string | null {
+  const validated = validateNotebookUrl(url);
+  const parsed = new URL(validated);
+  const segments = parsed.pathname.split('/').filter(Boolean);
+
+  const notebookIndex = segments.indexOf('notebook');
+  if (notebookIndex !== -1 && segments[notebookIndex + 1]) {
+    return segments[notebookIndex + 1];
+  }
+
+  if (segments.length > 0) {
+    return segments[segments.length - 1];
+  }
+
+  return null;
+}

@@ -6,7 +6,9 @@
 import chalk from 'chalk';
 import type { Command } from 'commander';
 import ora from 'ora';
-import { validateNotebookUrl } from '../core/validation.js';
+import { NotebookClient } from '../api/notebooks.js';
+import { getAuthManager } from '../auth/auth-manager.js';
+import { extractNotebookIdFromUrl, validateNotebookUrl } from '../core/validation.js';
 import { getNotebookLibrary } from '../notebook/notebook-manager.js';
 
 interface AddCommandOptions {
@@ -16,6 +18,10 @@ interface AddCommandOptions {
   contentTypes?: string;
   useCases?: string;
   tags?: string;
+}
+
+interface ListCommandOptions {
+  library?: boolean;
 }
 
 /**
@@ -45,10 +51,11 @@ export function addNotebookCommand(program: Command): void {
 
   notebookCmd
     .command('list')
-    .description('List all notebooks in the library')
-    .action(async () => {
+    .description('List remote NotebookLM notebooks (use --library for local saved notebooks)')
+    .option('-l, --library', 'List notebooks from the local library instead of the remote account')
+    .action(async (options: ListCommandOptions) => {
       try {
-        await handleListCommand();
+        await handleListCommand(options);
       } catch (error) {
         handleError(error);
       }
@@ -144,7 +151,68 @@ async function handleAddCommand(url: string, options: AddCommandOptions): Promis
   }
 }
 
-async function handleListCommand(): Promise<void> {
+async function handleListCommand(options: ListCommandOptions): Promise<void> {
+  if (options.library) {
+    await handleLibraryListCommand();
+    return;
+  }
+
+  const spinner = ora('Loading remote notebooks...').start();
+
+  try {
+    const authManager = getAuthManager();
+    const tokens = await authManager.loadAuth();
+
+    if (!tokens) {
+      spinner.fail('Authentication required');
+      console.log(chalk.yellow('\nRun "notebooklm auth login" first.\n'));
+      return;
+    }
+
+    const client = new NotebookClient(tokens);
+    if (!tokens.csrfToken || client.needsTokenRefresh()) {
+      await client.refreshCSRFToken();
+      await authManager.saveAuth(tokens);
+    }
+
+    const notebooks = await client.listNotebooks();
+    spinner.stop();
+
+    if (notebooks.length === 0) {
+      console.log(chalk.yellow('\n⚠️  No remote notebooks found\n'));
+      return;
+    }
+
+    console.log(chalk.bold('\n☁️  Remote NotebookLM Notebooks\n'));
+    const maxIdWidth = Math.max(...notebooks.map(n => n.id.length), 8);
+    const maxTitleWidth = Math.max(...notebooks.map(n => n.title.length), 10);
+
+    console.log(
+      chalk.cyan(
+        `  ${padRight('Remote ID', maxIdWidth)}  ${padRight('Title', maxTitleWidth)}  Sources`
+      )
+    );
+    console.log(chalk.gray(`  ${'─'.repeat(maxIdWidth)}  ${'─'.repeat(maxTitleWidth)}  ───────`));
+
+    for (const notebook of notebooks) {
+      console.log(
+        `  ${padRight(chalk.cyan(notebook.id), maxIdWidth)}  ${padRight(chalk.white(notebook.title), maxTitleWidth)}  ${chalk.magenta(String(notebook.sourceCount))}`
+      );
+    }
+
+    console.log(
+      chalk.gray(
+        '\nUse "notebooklm ask -n <remote-id> "question"" to query any notebook directly without activating it.'
+      )
+    );
+    console.log(`\n  Total remote notebooks: ${chalk.bold(notebooks.length.toString())}\n`);
+  } catch (error) {
+    spinner.fail('Failed to load remote notebooks');
+    throw error;
+  }
+}
+
+async function handleLibraryListCommand(): Promise<void> {
   const spinner = ora('Loading notebook library...').start();
 
   try {
@@ -157,12 +225,12 @@ async function handleListCommand(): Promise<void> {
     spinner.stop();
 
     if (notebooks.length === 0) {
-      console.log(chalk.yellow('\n⚠️  No notebooks in library'));
+      console.log(chalk.yellow('\n⚠️  No notebooks in local library'));
       console.log(chalk.gray('  Use "notebooklm notebook add <url>" to add your first notebook\n'));
       return;
     }
 
-    console.log(chalk.bold('\n📚 Notebook Library\n'));
+    console.log(chalk.bold('\n📚 Local Notebook Library\n'));
 
     const maxIdWidth = Math.max(...notebooks.map(n => n.id.length), 8);
     const maxNameWidth = Math.max(...notebooks.map(n => n.name.length), 10);
@@ -179,12 +247,13 @@ async function handleListCommand(): Promise<void> {
       const prefix = isActive ? chalk.green('▸ ') : '  ';
       const id = isActive ? chalk.cyan(notebook.id) : chalk.gray(notebook.id);
       const name = isActive ? chalk.white(notebook.name) : chalk.gray(notebook.name);
+      const remoteId = extractNotebookIdFromUrl(notebook.url) ?? '-';
       const topics =
         notebook.topics.slice(0, 2).join(', ') + (notebook.topics.length > 2 ? '...' : '');
       const uses = notebook.useCount.toString();
 
       console.log(
-        `${prefix}${padRight(id, maxIdWidth)}  ${padRight(name, maxNameWidth)}  ${padRight(topics || '-', 7)}  ${chalk.magenta(uses)}`
+        `${prefix}${padRight(id, maxIdWidth)}  ${padRight(name, maxNameWidth)}  ${padRight(topics || '-', 7)}  ${chalk.magenta(uses)} ${chalk.gray(`(${remoteId})`)}`
       );
     }
 
