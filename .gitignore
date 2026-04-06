@@ -39,6 +39,7 @@ coverage/
 # Temporary files
 *.tmp
 *.temp
+*.bun-build
 .cache/
 
 # Playwright
