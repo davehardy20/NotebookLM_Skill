@@ -5,11 +5,11 @@
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "notebooklm": "./bin/notebooklm"
+    "notebooklm": "./scripts/notebooklm.cjs"
   },
   "files": [
     "dist",
-    "bin",
+    "scripts",
     "README.md",
     "LICENSE"
   ],
@@ -21,7 +21,7 @@
     "build:binary:macos": "bun build src/cli.ts --compile --target=bun-darwin-x64 --outfile bin/notebooklm-macos-x64 --external playwright --external playwright-core && bun build src/cli.ts --compile --target=bun-darwin-arm64 --outfile bin/notebooklm-macos-arm64 --external playwright --external playwright-core",
     "build:binary:windows": "bun build src/cli.ts --compile --target=bun-windows-x64 --outfile bin/notebooklm-windows-x64.exe --external playwright --external playwright-core",
     "build:binary:all": "bun run build:binary:linux && bun run build:binary:macos && bun run build:binary:windows",
-    "postinstall": "bun run build:binary",
+    "postinstall": "node ./scripts/postinstall.cjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -51,16 +51,16 @@
   "dependencies": {
     "chalk": "^4.1.2",
     "commander": "^12.0.0",
-    "dotenv": "^17.2.4",
-    "execa": "^8.0.1",
+    "dotenv": "^16.6.1",
     "ora": "^5.4.1",
-    "pino": "^8.21.0",
+    "pino": "^8.19.0",
     "pino-pretty": "^10.3.1",
-    "playwright": "^1.41.0",
+    "ws": "^8.18.3",
     "zod": "^3.22.4"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^8.56.1",
     "@typescript-eslint/parser": "^8.56.1",
     "@vitest/coverage-v8": "^4.0.18",
