@@ -46,7 +46,7 @@ Query unknown notebooks first to discover content, then add to library.
 
 ## Project Structure
 
-```
+```text
 notebooklm/
 ├── src/                    # TypeScript source code
 │   ├── types/             # TypeScript interfaces and Zod schemas

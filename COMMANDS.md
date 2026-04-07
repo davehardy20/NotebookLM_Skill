@@ -212,7 +212,7 @@ notebooklm auth import --help
 **Exporting cookies from Chrome:**
 
 1. Install a cookie export extension (e.g., "Get cookies.txt")
-2. Go to https://notebooklm.google.com
+2. Go to <https://notebooklm.google.com>
 3. Export cookies to a file
 4. Import with the command above
 
@@ -805,5 +805,5 @@ head -5 cookies.txt
 
 # Should show Netscape format:
 # # Netscape HTTP Cookie File
-# .notebooklm.google.com	TRUE	/	FALSE	...
+# .notebooklm.google.com TRUE / FALSE ...
 ```
