@@ -1,6 +1,9 @@
 # NotebookLM Skill (TypeScript)
 
-A TypeScript implementation of the NotebookLM Claude Code Skill with improved performance, type safety, and modern tooling. Query your Google NotebookLM notebooks directly from the command line for source-grounded, citation-backed answers from Gemini.
+A TypeScript implementation of the NotebookLM Claude Code Skill with improved
+performance, type safety, and modern tooling. Query your Google NotebookLM
+notebooks directly from the command line for source-grounded, citation-backed
+answers from Gemini.
 
 ## Overview
 
@@ -128,17 +131,20 @@ notebooklm --help
 
 ### 4. Configure Required Encryption Key
 
-Before authenticating, set `STATE_ENCRYPTION_KEY`. The CLI requires this key to encrypt locally stored authentication data, cached responses, and query history.
+Before authenticating, set `STATE_ENCRYPTION_KEY`. The CLI requires this key
+to encrypt locally stored authentication data, cached responses, and query history.
 
 ```bash
 export STATE_ENCRYPTION_KEY="replace-this-with-a-unique-32-plus-character-secret"
 ```
 
-Use a strong secret, keep it out of version control, and store it somewhere recoverable. If you later lose or change it, delete the local NotebookLM auth/cache/history files and authenticate again.
+Use a strong secret, keep it out of version control, and store it somewhere
+recoverable. If you later lose or change it, delete the local NotebookLM
+auth/cache/history files and authenticate again.
 
 ### 5. Initial Setup
 
-**Option A: Authenticate using Chrome DevTools Protocol (CDP)**
+#### Option A: Authenticate using Chrome DevTools Protocol (CDP)
 
 ```bash
 # Start Chrome with remote debugging enabled
@@ -155,7 +161,7 @@ google-chrome --remote-debugging-port=9222
 notebooklm auth login
 ```
 
-**Option B: Import cookies from file**
+#### Option B: Import cookies from file
 
 ```bash
 # Export cookies from Chrome using a browser extension (e.g., "Get cookies.txt")
@@ -166,7 +172,7 @@ notebooklm auth import --file cookies.txt
 notebooklm auth status
 ```
 
-**Option C: Add your first notebook**
+#### Option C: Add your first notebook
 
 ```bash
 notebooklm notebook add \
@@ -263,6 +269,7 @@ This method connects to a running Chrome instance and extracts authentication co
 2. Log in to [NotebookLM](https://notebooklm.google.com) in Chrome
 
 3. Run authentication:
+
    ```bash
    notebooklm auth login
    ```
@@ -283,6 +290,7 @@ Import cookies exported from Chrome using browser extensions.
 2. Go to [NotebookLM](https://notebooklm.google.com) and ensure you're logged in
 3. Export cookies to a file
 4. Import:
+
    ```bash
    notebooklm auth import --file cookies.txt
    ```
@@ -334,7 +342,9 @@ All user data is stored in `~/.claude/skills/notebooklm/data/`:
 - `auth.json` - Encrypted authentication data
 - `logs/` - Application logs
 
-**Security:** The `data/` directory is protected by `.gitignore` and should never be committed. Authentication data, cache, and query history are encrypted at rest and require `STATE_ENCRYPTION_KEY`.
+**Security:** The `data/` directory is protected by `.gitignore` and should never be
+committed. Authentication data, cache, and query history are encrypted at rest
+and require `STATE_ENCRYPTION_KEY`.
 
 ## Environment Variables
 
@@ -389,9 +399,9 @@ notebooklm cache clear
 
 See [COMMANDS.md](./COMMANDS.md#installation-troubleshooting) for detailed troubleshooting.
 
-## Status
+### Status
 
-**Implementation Complete**
+#### Implementation Complete
 
 - All core features implemented
 - CDP authentication working
@@ -410,7 +420,11 @@ MIT License - See LICENSE file for details.
 
 **TypeScript migration** by Claude Code.
 
-**Inspiration:** This project is inspired by the [notebooklm-skill](https://github.com/PleasePrompto/notebooklm-skill) by PleasePrompto, which provided the original Python implementation and concept. This TypeScript version is a complete rewrite with additional features including CDP authentication, cookie import, caching, history tracking, and performance monitoring.
+**Inspiration:** This project is inspired by the [notebooklm-skill](https://github.com/PleasePrompto/notebooklm-skill)
+by PleasePrompto, which provided the original Python implementation and concept.
+This TypeScript version is a complete rewrite with additional features including
+CDP authentication, cookie import, caching, history tracking, and performance
+monitoring.
 
 ## Contributing
 

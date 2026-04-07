@@ -69,7 +69,7 @@ notebooklm --help
 
 ### Step 5: Initial Setup
 
-**Option A: Authenticate using Chrome DevTools Protocol (CDP)**
+#### Option A: Authenticate using Chrome DevTools Protocol (CDP)
 
 ```bash
 # 1. Start Chrome with remote debugging (in a separate terminal)
@@ -91,7 +91,7 @@ notebooklm auth login
 notebooklm auth status
 ```
 
-**Option B: Import cookies from file**
+#### Option B: Import cookies from file
 
 ```bash
 # 1. Export cookies from Chrome using a browser extension (e.g., "Get cookies.txt")
