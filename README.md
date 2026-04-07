@@ -6,7 +6,8 @@ A TypeScript implementation of the NotebookLM Claude Code Skill with improved pe
 
 This is a TypeScript port of the Python-based NotebookLM skill, featuring:
 
-- **Native Playwright support** - Official browser automation library
+- **Chrome DevTools Protocol (CDP) authentication** - Direct cookie extraction from Chrome
+- **Cookie import support** - Import cookies from file (Netscape or JSON format)
 - **True async I/O** - Non-blocking operations with async/await
 - **Type safety** - Compile-time error checking with TypeScript
 - **Response caching** - Faster repeat queries with intelligent cache
@@ -17,9 +18,11 @@ This is a TypeScript port of the Python-based NotebookLM skill, featuring:
 
 ## Features
 
-### 🔐 Persistent Authentication
+### 🔐 Multiple Authentication Methods
 
-One-time Google login with automatic session persistence across queries.
+- **CDP authentication** - Extract cookies directly from Chrome with remote debugging
+- **Cookie import** - Import cookies from browser extensions or exported files
+- **Persistent sessions** - Save and reuse authentication across queries
 
 ### 📚 Notebook Library Management
 
@@ -47,8 +50,9 @@ Query unknown notebooks first to discover content, then add to library.
 notebooklm/
 ├── src/                    # TypeScript source code
 │   ├── types/             # TypeScript interfaces and Zod schemas
-│   ├── core/              # Config, logging, errors, paths
-│   ├── browser/           # Browser automation (Playwright)
+│   ├── core/              # Config, logging, errors, paths, crypto
+│   ├── auth/              # Authentication management (CDP, import)
+│   ├── api/               # NotebookLM API client
 │   ├── notebook/          # Library management
 │   ├── cache/             # Response caching
 │   ├── performance/       # Metrics and monitoring
@@ -65,7 +69,7 @@ notebooklm/
 │   ├── library.json       # Notebook metadata
 │   ├── response_cache.json # Cached responses
 │   ├── history.json       # Query history
-│   ├── browser_state/     # Authentication state
+│   ├── auth.json          # Encrypted authentication data
 │   └── logs/              # Application logs
 ├── package.json           # Dependencies and scripts
 ├── tsconfig.json          # TypeScript configuration
@@ -77,30 +81,11 @@ notebooklm/
 ## Prerequisites
 
 - **Bun** >= 1.0.0 (recommended) or **Node.js** >= 20.0.0
-- **Playwright** (will be installed automatically as a peer dependency)
-- **Google Chrome** (installed automatically by Playwright if not present)
+- **Google Chrome** - For CDP authentication method
 
 ## Installation
 
-### Option 1: Install via bunx (Recommended - No Clone Required)
-
-The fastest way to get started is using `bunx` which automatically downloads and caches the latest version:
-
-```bash
-# Install Playwright globally (required external dependency)
-bun install -g playwright
-
-# Run directly with bunx
-bunx notebooklm-skill --help
-
-# Or install globally
-bun install -g notebooklm-skill
-notebooklm --help
-```
-
-**Note:** Playwright is an external dependency and must be installed separately because it includes native browser binaries that cannot be bundled.
-
-### Option 2: Clone and Build from Source
+### Option 1: Clone and Build from Source
 
 ```bash
 # Create skills directory if it does not exist
@@ -116,10 +101,22 @@ cd notebooklm
 # Install dependencies with bun
 bun install
 
-# `notebooklm` will always be exposed through the wrapper script.
-# If Bun is installed, postinstall will also compile a native Bun binary.
-# Or manually build it:
+# Build the project
+bun run build
+
+# Or build standalone binary
 bun run build:binary
+```
+
+### Option 2: Install via npm/bun (when published)
+
+```bash
+# Install globally
+bun install -g notebooklm-skill
+# or
+npm install -g notebooklm-skill
+
+notebooklm --help
 ```
 
 ### 3. Verify Installation
@@ -131,7 +128,7 @@ notebooklm --help
 
 ### 4. Configure Required Encryption Key
 
-Before authenticating, set `STATE_ENCRYPTION_KEY`. The CLI now requires this key to encrypt locally stored authentication data, cached responses, and query history.
+Before authenticating, set `STATE_ENCRYPTION_KEY`. The CLI requires this key to encrypt locally stored authentication data, cached responses, and query history.
 
 ```bash
 export STATE_ENCRYPTION_KEY="replace-this-with-a-unique-32-plus-character-secret"
@@ -141,14 +138,37 @@ Use a strong secret, keep it out of version control, and store it somewhere reco
 
 ### 5. Initial Setup
 
+**Option A: Authenticate using Chrome DevTools Protocol (CDP)**
+
 ```bash
-# Authenticate with Google (opens browser)
-notebooklm auth setup
+# Start Chrome with remote debugging enabled
+# macOS:
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
+
+# Linux:
+google-chrome --remote-debugging-port=9222
+
+# Windows:
+"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
+
+# In another terminal, authenticate
+notebooklm auth login
+```
+
+**Option B: Import cookies from file**
+
+```bash
+# Export cookies from Chrome using a browser extension (e.g., "Get cookies.txt")
+# Then import them
+notebooklm auth import --file cookies.txt
 
 # Verify authentication
 notebooklm auth status
+```
 
-# Add your first notebook
+**Option C: Add your first notebook**
+
+```bash
 notebooklm notebook add \
   "https://notebooklm.google.com/notebook/YOUR_NOTEBOOK_ID" \
   -n "My Notebook" \
@@ -162,8 +182,14 @@ notebooklm notebook add \
 # Required once per shell/session unless loaded from your shell profile
 export STATE_ENCRYPTION_KEY="replace-this-with-a-unique-32-plus-character-secret"
 
-# Authenticate (one-time)
-notebooklm auth setup
+# Start Chrome with remote debugging (in a separate terminal)
+chrome --remote-debugging-port=9222
+
+# Authenticate using CDP
+notebooklm auth login
+
+# Or import cookies from file
+notebooklm auth import --file cookies.txt
 
 # Add a notebook
 notebooklm notebook add "URL" -n "Name" -d "Description" -t "topics"
@@ -187,9 +213,11 @@ See [COMMANDS.md](./COMMANDS.md) for the complete command reference with example
 
 ### Authentication
 
-- `notebooklm auth setup` - Initial authentication
-- `notebooklm auth status` - Check authentication
+- `notebooklm auth login [--port PORT]` - Authenticate using Chrome DevTools Protocol
+- `notebooklm auth import --file PATH` - Import cookies from file
+- `notebooklm auth status` - Check authentication status
 - `notebooklm auth validate` - Test if auth is valid
+- `notebooklm auth clear` - Clear authentication data
 
 ### Notebook Management
 
@@ -210,21 +238,72 @@ See [COMMANDS.md](./COMMANDS.md) for the complete command reference with example
 
 - `notebooklm cache stats` - View cache statistics
 - `notebooklm cache clear` - Clear all cache
+- `notebooklm cache clean` - Remove expired entries
 - `notebooklm perf stats` - View performance metrics
 - `notebooklm history` - View query history
 
+## Authentication Methods
+
+### Method 1: Chrome DevTools Protocol (CDP) - Recommended
+
+This method connects to a running Chrome instance and extracts authentication cookies directly.
+
+**Setup:**
+
+1. Start Chrome with remote debugging:
+
+   ```bash
+   # macOS
+   /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
+
+   # Linux
+   google-chrome --remote-debugging-port=9222
+   ```
+
+2. Log in to [NotebookLM](https://notebooklm.google.com) in Chrome
+
+3. Run authentication:
+   ```bash
+   notebooklm auth login
+   ```
+
+**Benefits:**
+
+- No manual cookie export needed
+- Automatic token refresh
+- Seamless integration with your existing Chrome session
+
+### Method 2: Cookie Import
+
+Import cookies exported from Chrome using browser extensions.
+
+**Setup:**
+
+1. Install a cookie export extension (e.g., "Get cookies.txt" for Chrome)
+2. Go to [NotebookLM](https://notebooklm.google.com) and ensure you're logged in
+3. Export cookies to a file
+4. Import:
+   ```bash
+   notebooklm auth import --file cookies.txt
+   ```
+
+**Supported formats:**
+
+- Netscape cookies.txt format
+- JSON format (array of cookie objects)
+
 ## Differences from Python Version
 
-| Feature          | Python Version   | TypeScript Version |
-| ---------------- | ---------------- | ------------------ |
-| **Runtime**      | Python 3.8+      | Node.js 20+        |
-| **Browser**      | Patchright       | Playwright         |
-| **Distribution** | Source + venv    | Compiled + wrapper |
-| **Caching**      | No               | Yes                |
-| **History**      | No               | Yes                |
-| **Performance**  | No               | Yes                |
-| **Type Safety**  | No               | Yes                |
-| **CLI**          | Multiple scripts | Unified interface  |
+| Feature          | Python Version   | TypeScript Version       |
+| ---------------- | ---------------- | ------------------------ |
+| **Runtime**      | Python 3.8+      | Node.js 20+ / Bun        |
+| **Browser**      | Patchright       | Chrome DevTools Protocol |
+| **Distribution** | Source + venv    | Compiled + wrapper       |
+| **Caching**      | No               | Yes                      |
+| **History**      | No               | Yes                      |
+| **Performance**  | No               | Yes                      |
+| **Type Safety**  | No               | Yes                      |
+| **CLI**          | Multiple scripts | Unified interface        |
 
 ## Development
 
@@ -252,7 +331,7 @@ All user data is stored in `~/.claude/skills/notebooklm/data/`:
 - `library.json` - Notebook metadata and library
 - `response_cache.json` - Cached query responses
 - `history.json` - Query history
-- `browser_state/` - Authentication cookies and session
+- `auth.json` - Encrypted authentication data
 - `logs/` - Application logs
 
 **Security:** The `data/` directory is protected by `.gitignore` and should never be committed. Authentication data, cache, and query history are encrypted at rest and require `STATE_ENCRYPTION_KEY`.
@@ -273,30 +352,50 @@ NOTEBOOKLM_LOG_LEVEL=debug  # debug, info, warn, error
 
 ## Troubleshooting
 
-See [COMMANDS.md](./COMMANDS.md#installation-troubleshooting) for detailed troubleshooting.
+### Chrome is not running with remote debugging
 
-Quick fixes:
+If you see this error when using `auth login`:
+
+```bash
+# Start Chrome with remote debugging
+chrome --remote-debugging-port=9222
+```
+
+### Authentication expired
+
+```bash
+# Re-authenticate using CDP
+notebooklm auth login
+
+# Or re-import cookies
+notebooklm auth import --file cookies.txt
+```
+
+### Other quick fixes
 
 ```bash
 # Rebuild after issues
 rm -rf node_modules dist
-pnpm install
+bun install
 bun run build
 
 # Clear auth and re-authenticate
 notebooklm auth clear
-notebooklm auth setup
+notebooklm auth login
 
 # Clear cache
 notebooklm cache clear
 ```
+
+See [COMMANDS.md](./COMMANDS.md#installation-troubleshooting) for detailed troubleshooting.
 
 ## Status
 
 **Implementation Complete**
 
 - All core features implemented
-- Authentication working
+- CDP authentication working
+- Cookie import functionality
 - Notebook library management
 - Query interface with caching
 - Performance monitoring
@@ -311,7 +410,7 @@ MIT License - See LICENSE file for details.
 
 **TypeScript migration** by Claude Code.
 
-**Inspiration:** This project is inspired by the [notebooklm-skill](https://github.com/PleasePrompto/notebooklm-skill) by PleasePrompto, which provided the original Python implementation and concept. This TypeScript version is a complete rewrite with additional features including caching, history tracking, and performance monitoring.
+**Inspiration:** This project is inspired by the [notebooklm-skill](https://github.com/PleasePrompto/notebooklm-skill) by PleasePrompto, which provided the original Python implementation and concept. This TypeScript version is a complete rewrite with additional features including CDP authentication, cookie import, caching, history tracking, and performance monitoring.
 
 ## Contributing
 

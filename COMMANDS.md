@@ -8,7 +8,7 @@ Complete guide to installing and using the `notebooklm` CLI with practical examp
 
 - **Node.js** >= 20.0.0
 - **bun** (recommended) or npm
-- **Google Chrome** (will be installed by Playwright if not present)
+- **Google Chrome** - For CDP authentication method
 
 ### Step 1: Clone the Repository
 
@@ -69,21 +69,46 @@ notebooklm --help
 
 ### Step 5: Initial Setup
 
-```bash
-# 1. Authenticate with Google (opens browser)
-notebooklm auth setup
+**Option A: Authenticate using Chrome DevTools Protocol (CDP)**
 
-# 2. Verify authentication
+```bash
+# 1. Start Chrome with remote debugging (in a separate terminal)
+# macOS:
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
+
+# Linux:
+google-chrome --remote-debugging-port=9222
+
+# Windows:
+"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
+
+# 2. Log in to NotebookLM in Chrome at https://notebooklm.google.com
+
+# 3. Run authentication
+notebooklm auth login
+
+# 4. Verify authentication
+notebooklm auth status
+```
+
+**Option B: Import cookies from file**
+
+```bash
+# 1. Export cookies from Chrome using a browser extension (e.g., "Get cookies.txt")
+# 2. Import them
+notebooklm auth import --file cookies.txt
+
+# 3. Verify authentication
 notebooklm auth status
 
-# 3. Add your first notebook
+# 4. Add your first notebook
 notebooklm notebook add \
   "https://notebooklm.google.com/notebook/YOUR_NOTEBOOK_ID" \
   -n "My First Notebook" \
   -d "Description of your notebook" \
   -t "topic1,topic2"
 
-# 4. List notebooks to verify
+# 5. List notebooks to verify
 notebooklm notebook list
 ```
 
@@ -122,13 +147,13 @@ bun run build
 
 ```bash
 # Authentication
-notebooklm auth setup|status|validate|reauth|clear
+notebooklm auth login|import|status|validate|clear
 
 # Notebook Management
 notebooklm notebook add|list|search|activate|remove|stats
 
 # Queries
-notebooklm ask "question" [--id ID] [--url URL] [--no-headless] [--save]
+notebooklm ask "question" [--id ID] [--url URL] [--save]
 
 # Cache & Performance
 notebooklm cache stats|clear|clean
@@ -142,21 +167,54 @@ notebooklm history [--stats] [--export] [--clear]
 
 ## Authentication Commands (`auth`)
 
-### `auth setup`
+### `auth login`
 
-Run interactive authentication with Google.
+Authenticate using Chrome DevTools Protocol (CDP). Extracts cookies from a running Chrome instance.
+
+**Prerequisites:**
+
+- Chrome must be running with remote debugging enabled
+- You must be logged in to NotebookLM in Chrome
 
 ```bash
-# Open browser for Google login
-notebooklm auth setup
+# Start Chrome with remote debugging first
+chrome --remote-debugging-port=9222
 
-# With custom timeout (default: 10 minutes)
-notebooklm auth setup --timeout 15
+# Then authenticate
+notebooklm auth login
+
+# Use custom port
+notebooklm auth login --port 9223
 ```
 
-**When to use:** First time setup, or when authentication expires.
+**What it does:**
 
-**Note:** Browser must be visible for manual login. A Chrome window will open automatically.
+1. Connects to Chrome via CDP on the specified port (default: 9222)
+2. Navigates to NotebookLM
+3. Extracts authentication cookies
+4. Validates the session
+5. Saves encrypted authentication data
+
+---
+
+### `auth import`
+
+Import authentication cookies from a file (Netscape cookies.txt or JSON format).
+
+```bash
+# Import from Netscape cookies.txt format
+notebooklm auth import --file cookies.txt
+
+# View help
+notebooklm auth import --help
+```
+
+**Exporting cookies from Chrome:**
+
+1. Install a cookie export extension (e.g., "Get cookies.txt")
+2. Go to https://notebooklm.google.com
+3. Export cookies to a file
+4. Import with the command above
 
 ---
 
@@ -171,7 +229,7 @@ notebooklm auth status
 # Output example:
 # ✓ Authentication Status: Authenticated
 # Session age: 2.3 hours ago
-# State file: ~/.claude/skills/notebooklm/data/browser_state/state.json
+# Expires in: 27 days
 ```
 
 ---
@@ -183,25 +241,9 @@ Test if stored authentication is still valid.
 ```bash
 # Verify auth is working
 notebooklm auth validate
-
-# With custom timeout
-notebooklm auth validate --timeout 2
 ```
 
 **When to use:** Before long sessions, if you suspect auth expired.
-
----
-
-### `auth reauth`
-
-Clear and re-authenticate.
-
-```bash
-# Start fresh authentication
-notebooklm auth reauth
-```
-
-**When to use:** Authentication issues, switching Google accounts.
 
 ---
 
@@ -214,7 +256,7 @@ Remove all authentication data.
 notebooklm auth clear
 ```
 
-**When to use:** Troubleshooting, privacy concerns.
+**When to use:** Troubleshooting, privacy concerns, switching accounts.
 
 ---
 
@@ -356,16 +398,12 @@ notebooklm ask "Explain error handling" --id api-docs
 # Query by URL (without adding to library)
 notebooklm ask "Summary of content" --url "https://notebooklm.google.com/notebook/..."
 
-# Show browser for debugging
-notebooklm ask "Debug this issue" --no-headless
-
 # Save conversation to history
 notebooklm ask "Important question" --save
 
 # Combine options
 notebooklm ask "Complex query" \
   --id python-guide \
-  --no-headless \
   --save
 ```
 
@@ -374,7 +412,6 @@ notebooklm ask "Complex query" \
 - Be specific in your questions
 - Include context ("In the API documentation...")
 - Use `--save` for important queries you want to reference later
-- Enable `--no-headless` if you're debugging browser issues
 
 ---
 
@@ -536,16 +573,22 @@ notebooklm history --clear
 ### First-Time Setup
 
 ```bash
-# 1. Authenticate
-notebooklm auth setup
+# 1. Start Chrome with remote debugging (in separate terminal)
+chrome --remote-debugging-port=9222
 
-# 2. Check status
+# 2. Authenticate via CDP
+notebooklm auth login
+
+# 3. Or import cookies
+# notebooklm auth import --file cookies.txt
+
+# 4. Check status
 notebooklm auth status
 
-# 3. Add your first notebook
+# 5. Add your first notebook
 notebooklm notebook add "URL" -n "Name" -d "Description" -t "topics"
 
-# 4. Verify
+# 6. Verify
 notebooklm notebook list
 ```
 
@@ -638,14 +681,15 @@ notebooklm auth status && notebooklm ask "Question"
 
 ## Troubleshooting Quick Reference
 
-| Issue            | Command           | Solution                           |
-| ---------------- | ----------------- | ---------------------------------- |
-| Auth expired     | `auth validate`   | Run `auth setup`                   |
-| Slow queries     | `perf stats`      | Check cache hit rate               |
-| Wrong notebook   | `notebook list`   | Use `--id` or activate correct one |
-| Cache issues     | `cache clear`     | Clear and retry                    |
-| Missing notebook | `notebook search` | Find by keyword                    |
-| Build errors     | -                 | Run `bun install && bun run build` |
+| Issue            | Command           | Solution                                         |
+| ---------------- | ----------------- | ------------------------------------------------ |
+| Auth expired     | `auth validate`   | Run `auth login` or `auth import`                |
+| Chrome not found | -                 | Start Chrome with `--remote-debugging-port=9222` |
+| Slow queries     | `perf stats`      | Check cache hit rate                             |
+| Wrong notebook   | `notebook list`   | Use `--id` or activate correct one               |
+| Cache issues     | `cache clear`     | Clear and retry                                  |
+| Missing notebook | `notebook search` | Find by keyword                                  |
+| Build errors     | -                 | Run `bun install && bun run build`               |
 
 ---
 
@@ -656,7 +700,7 @@ All data stored in `~/.claude/skills/notebooklm/data/`:
 - `library.json` - Notebook metadata
 - `response_cache.json` - Cached responses
 - `history.json` - Query history
-- `browser_state/` - Authentication state
+- `auth.json` - Encrypted authentication data
 - `logs/` - Application logs
 
 ---
@@ -707,16 +751,6 @@ bun run build
 bun run typecheck
 ```
 
-### Playwright/Browser Issues
-
-```bash
-# Install Playwright browsers
-npx playwright install chromium
-
-# Or install all browsers
-npx playwright install
-```
-
 ### Permission Denied
 
 ```bash
@@ -751,15 +785,25 @@ notebooklm notebook list
 
 ### Authentication Issues
 
-If browser doesn't open during `auth setup`:
+If authentication fails:
+
+**For CDP authentication:**
 
 ```bash
-# Check Chrome is installed
-which google-chrome  # Linux
-which google-chrome-stable  # Linux alternative
-ls /Applications/Google\ Chrome.app  # macOS
+# Check Chrome is running with remote debugging
+curl http://localhost:9222/json/version
 
-# Try with explicit browser path
-export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH="/path/to/chrome"
-notebooklm auth setup
+# Should return Chrome version info. If not, start Chrome:
+chrome --remote-debugging-port=9222
+```
+
+**For cookie import:**
+
+```bash
+# Verify cookie file format
+head -5 cookies.txt
+
+# Should show Netscape format:
+# # Netscape HTTP Cookie File
+# .notebooklm.google.com	TRUE	/	FALSE	...
 ```
