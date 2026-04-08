@@ -7,6 +7,7 @@
  * - Persistent cache storage across sessions
  * - Cache statistics and management
  * - Automatic cache invalidation based on age
+ * - Debounced disk writes for performance
  */
 
 import { createHash } from 'node:crypto';
@@ -26,7 +27,7 @@ import { type CacheEntry, CacheEntrySchema, type CacheStats } from '../types/cac
 
 const DEFAULT_MAX_SIZE = 100;
 const DEFAULT_TTL_SECONDS = 86400; // 24 hours
-const AUTO_SAVE_THRESHOLD = 5;
+const DEBOUNCE_INTERVAL_MS = 5000; // 5 seconds debounce for disk writes
 
 /**
  * Persisted cache state for JSON serialization with Zod validation
@@ -59,34 +60,17 @@ class InternalCacheEntry {
     answer: string,
     notebookUrl: string,
     timestamp?: number,
-    hitCount: number = 0
+    hitCount?: number
   ) {
     this.question = question;
     this.answer = answer;
     this.notebookUrl = notebookUrl;
     this.timestamp = timestamp ?? Date.now() / 1000;
-    this.hitCount = hitCount;
+    this.hitCount = hitCount ?? 0;
   }
 
   isExpired(ttlSeconds: number): boolean {
     return Date.now() / 1000 - this.timestamp > ttlSeconds;
-  }
-
-  ageSeconds(): number {
-    return Date.now() / 1000 - this.timestamp;
-  }
-
-  ageFormatted(): string {
-    const age = this.ageSeconds();
-    if (age < 60) {
-      return `${Math.floor(age)}s`;
-    } else if (age < 3600) {
-      return `${Math.floor(age / 60)}m`;
-    } else if (age < 86400) {
-      return `${Math.floor(age / 3600)}h`;
-    } else {
-      return `${Math.floor(age / 86400)}d`;
-    }
   }
 
   toCacheEntry(): CacheEntry {
@@ -101,17 +85,12 @@ class InternalCacheEntry {
 }
 
 /**
- * LRU Cache for NotebookLM responses with persistence.
- *
- * Configuration via environment variables or defaults:
- * - CACHE_ENABLED: Enable/disable caching (default: true)
- * - CACHE_MAX_SIZE: Maximum number of entries (default: 100)
- * - CACHE_TTL_SECONDS: Time-to-live for entries (default: 86400 = 24 hours)
+ * Response cache with LRU eviction and debounced persistence
  */
 export class ResponseCache {
-  private readonly maxSize: number;
-  private readonly ttlSeconds: number;
-  private readonly cacheFile: string;
+  private maxSize: number;
+  private ttlSeconds: number;
+  private cacheFile: string;
 
   // Map maintains insertion order in ES6+, perfect for LRU
   private cache: Map<string, InternalCacheEntry> = new Map();
@@ -123,8 +102,9 @@ export class ResponseCache {
     totalQueries: 0,
   };
 
-  private writesSinceLastSave = 0;
   private isLoaded = false;
+  private isDirty = false;
+  private debounceTimer: NodeJS.Timeout | null = null;
 
   constructor(maxSize?: number, ttlSeconds?: number, cacheFile?: string) {
     this.maxSize = maxSize ?? DEFAULT_MAX_SIZE;
@@ -203,6 +183,38 @@ export class ResponseCache {
   }
 
   /**
+   * Schedule a debounced save to disk
+   */
+  private scheduleSave(): void {
+    this.isDirty = true;
+
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+    }
+
+    this.debounceTimer = setTimeout(() => {
+      this.flushSave().catch(err => {
+        logger.warn('Failed to save cache:', err);
+      });
+    }, DEBOUNCE_INTERVAL_MS);
+  }
+
+  /**
+   * Flush pending save to disk immediately
+   */
+  private async flushSave(): Promise<void> {
+    if (!this.isDirty) return;
+
+    this.isDirty = false;
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
+
+    await this.persistToFile();
+  }
+
+  /**
    * Save cache to disk
    */
   private async persistToFile(): Promise<void> {
@@ -233,6 +245,8 @@ export class ResponseCache {
           logger.warn('Could not set permissions on cache');
         }
       }
+
+      logger.debug('Cache persisted to disk');
     } catch (error) {
       logger.warn(`Could not save cache: ${String(error)}`);
     }
@@ -256,6 +270,7 @@ export class ResponseCache {
     if (entry.isExpired(this.ttlSeconds)) {
       this.cache.delete(key);
       this.stats.misses++;
+      this.scheduleSave();
       return null;
     }
 
@@ -298,11 +313,8 @@ export class ResponseCache {
     this.cache.delete(key);
     this.cache.set(key, entry);
 
-    // Persist periodically (every 5 writes)
-    this.writesSinceLastSave++;
-    if (this.writesSinceLastSave % AUTO_SAVE_THRESHOLD === 0) {
-      await this.persistToFile();
-    }
+    // Schedule debounced save
+    this.scheduleSave();
   }
 
   /**
@@ -314,7 +326,7 @@ export class ResponseCache {
     if (!question && !notebookUrl) {
       const count = this.cache.size;
       this.cache.clear();
-      await this.persistToFile();
+      await this.flushSave();
       return count;
     }
 
@@ -332,7 +344,7 @@ export class ResponseCache {
     }
 
     if (toRemove.length > 0) {
-      await this.persistToFile();
+      this.scheduleSave();
     }
 
     return toRemove.length;
@@ -356,7 +368,7 @@ export class ResponseCache {
     }
 
     if (expiredKeys.length > 0) {
-      await this.persistToFile();
+      this.scheduleSave();
     }
 
     return expiredKeys.length;
@@ -399,7 +411,7 @@ export class ResponseCache {
    * Explicitly save cache to disk
    */
   async save(): Promise<void> {
-    await this.persistToFile();
+    await this.flushSave();
   }
 
   /**
