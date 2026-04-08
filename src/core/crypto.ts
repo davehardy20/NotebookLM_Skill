@@ -11,7 +11,7 @@
  * - AuthTag: 16 bytes (GCM authentication tag)
  */
 
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes, scrypt } from 'node:crypto';
 import { createChildLogger } from './logger.js';
 
 const logger = createChildLogger('Crypto');
@@ -38,29 +38,43 @@ const SCRYPT_PARAMS = {
 };
 
 /**
- * Derive encryption key from password using scrypt
+ * Derive encryption key from password using scrypt (async)
  *
  * @param password - The encryption password/key
  * @param salt - Random salt (16 bytes)
  * @returns 32-byte key for AES-256
  */
-function deriveKey(password: string, salt: Buffer): Buffer {
-  return scryptSync(password, salt, SCRYPT_PARAMS.dkLen, {
-    N: SCRYPT_PARAMS.N,
-    r: SCRYPT_PARAMS.r,
-    p: SCRYPT_PARAMS.p,
+async function deriveKey(password: string, salt: Buffer): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    scrypt(
+      password,
+      salt,
+      SCRYPT_PARAMS.dkLen,
+      {
+        N: SCRYPT_PARAMS.N,
+        r: SCRYPT_PARAMS.r,
+        p: SCRYPT_PARAMS.p,
+      },
+      (err, derivedKey) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(derivedKey);
+        }
+      }
+    );
   });
 }
 
 /**
- * Encrypt an object using AES-256-GCM
+ * Encrypt an object using AES-256-GCM (async)
  *
  * @param data - The data object to encrypt
  * @param key - The encryption key (from environment variable)
  * @returns Base64-encoded encrypted string with prefix
  * @throws Error if encryption fails
  */
-export function encryptState(data: object, key: string): string {
+export async function encryptState(data: object, key: string): Promise<string> {
   try {
     // Validate key
     if (!key || key.length < MIN_ENCRYPTION_KEY_LENGTH) {
@@ -73,8 +87,8 @@ export function encryptState(data: object, key: string): string {
     const salt = randomBytes(16); // 128-bit salt
     const iv = randomBytes(12); // 96-bit IV (GCM recommended)
 
-    // Derive key using scrypt
-    const derivedKey = deriveKey(key, salt);
+    // Derive key using scrypt (async - non-blocking)
+    const derivedKey = await deriveKey(key, salt);
 
     // Create cipher
     const cipher = createCipheriv('aes-256-gcm', derivedKey, iv);
@@ -99,14 +113,14 @@ export function encryptState(data: object, key: string): string {
 }
 
 /**
- * Decrypt an encrypted state string
+ * Decrypt an encrypted state string (async)
  *
  * @param encryptedData - The base64-encoded encrypted string
  * @param key - The encryption key (must match encryption key)
  * @returns The decrypted object
  * @throws Error if decryption fails (invalid key, tampered data, etc.)
  */
-export function decryptState(encryptedData: string, key: string): object {
+export async function decryptState(encryptedData: string, key: string): Promise<object> {
   try {
     // Validate key
     if (!key || key.length < MIN_ENCRYPTION_KEY_LENGTH) {
@@ -135,8 +149,8 @@ export function decryptState(encryptedData: string, key: string): object {
     const authTag = encrypted.subarray(encrypted.length - 16); // last 16 bytes
     const ciphertext = encrypted.subarray(28, encrypted.length - 16);
 
-    // Derive key using scrypt
-    const derivedKey = deriveKey(key, salt);
+    // Derive key using scrypt (async - non-blocking)
+    const derivedKey = await deriveKey(key, salt);
 
     // Create decipher
     const decipher = createDecipheriv('aes-256-gcm', derivedKey, iv);
@@ -245,7 +259,7 @@ export function requireEncryptionKeyFromEnv(): string {
 }
 
 /**
- * Attempt to parse and decrypt state data
+ * Attempt to parse and decrypt state data (async)
  * Handles both encrypted and unencrypted data for backward compatibility
  *
  * @param data - The raw file contents
@@ -253,7 +267,7 @@ export function requireEncryptionKeyFromEnv(): string {
  * @returns Parsed state object
  * @throws Error if data cannot be parsed or decrypted
  */
-export function parseStateData(data: string, key?: string): object {
+export async function parseStateData(data: string, key?: string): Promise<object> {
   // If data is not encrypted, parse as JSON directly
   if (!isEncrypted(data)) {
     try {
@@ -274,30 +288,28 @@ export function parseStateData(data: string, key?: string): object {
     );
   }
 
-  // Decrypt and parse
+  // Decrypt and parse (async)
   return decryptState(data, encryptionKey);
 }
 
 /**
- * Encrypt state data if key is available
- * Falls back to unencrypted JSON if no key (for backward compatibility)
+ * Encrypt state data if key is available (async)
+ * Throws error if no key is available - encryption is mandatory for sensitive data
  *
  * @param data - The state object to save
  * @param key - The encryption key (optional, from env if not provided)
- * @returns String to write to file (encrypted or JSON)
+ * @returns String to write to file (encrypted)
+ * @throws Error if encryption key is not available
  */
-export function serializeStateData(data: object, key?: string): string {
+export async function serializeStateData(data: object, key?: string): Promise<string> {
   const encryptionKey = key ?? getEncryptionKeyFromEnv();
 
-  if (encryptionKey) {
-    try {
-      return encryptState(data, encryptionKey);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      logger.warn('Encryption failed, falling back to unencrypted', { error: message });
-    }
+  if (!encryptionKey) {
+    throw new Error(
+      `STATE_ENCRYPTION_KEY must be set to at least ${MIN_ENCRYPTION_KEY_LENGTH} characters to securely store NotebookLM local data. ` +
+        'This is required for protecting authentication tokens, cache, and history.'
+    );
   }
 
-  // Fallback to unencrypted JSON
-  return JSON.stringify(data, null, 2);
+  return encryptState(data, encryptionKey);
 }

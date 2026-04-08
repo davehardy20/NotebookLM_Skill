@@ -1,17 +1,13 @@
 import { readFileSync } from 'node:fs';
-import { lstat, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { REQUIRED_COOKIES } from '../api/constants.js';
 import { CookieValidationError } from '../api/errors.js';
 import { NotebookClient } from '../api/notebooks.js';
 import type { AuthTokens, Cookie } from '../api/types.js';
-import {
-  isEncrypted,
-  parseStateData,
-  requireEncryptionKeyFromEnv,
-  serializeStateData,
-} from '../core/crypto.js';
+import { requireEncryptionKeyFromEnv, serializeStateData } from '../core/crypto.js';
 import { Paths } from '../core/paths.js';
+import { loadAuthFromFile } from './auth-utils.js';
 import { CDPAuthManager, type CDPAuthResult } from './cdp-auth.js';
 
 const AUTH_FILE = 'auth.json';
@@ -150,27 +146,12 @@ export class AuthManager {
   async saveAuth(tokens: AuthTokens): Promise<void> {
     await mkdir(this.paths.dataDir, { recursive: true });
     const encryptionKey = requireEncryptionKeyFromEnv();
-    const serialized = serializeStateData(tokens, encryptionKey);
+    const serialized = await serializeStateData(tokens, encryptionKey);
     await writeFile(this.authPath, serialized, { mode: 0o600 });
   }
 
   async loadAuth(): Promise<AuthTokens | null> {
-    try {
-      const content = await readFile(this.authPath, 'utf-8');
-      if (!isEncrypted(content)) {
-        throw new Error(
-          'Existing authentication data is stored insecurely. Delete auth.json and re-authenticate after setting STATE_ENCRYPTION_KEY.'
-        );
-      }
-
-      return parseStateData(content, requireEncryptionKeyFromEnv()) as AuthTokens;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        return null;
-      }
-
-      throw error;
-    }
+    return loadAuthFromFile(this.authPath);
   }
 
   async clearAuth(): Promise<boolean> {

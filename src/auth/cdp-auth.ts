@@ -681,7 +681,7 @@ export class CDPAuthManager {
   async saveAuth(tokens: AuthTokens): Promise<void> {
     await mkdir(this.paths.dataDir, { recursive: true });
     const encryptionKey = requireEncryptionKeyFromEnv();
-    const serialized = serializeStateData(tokens, encryptionKey);
+    const serialized = await serializeStateData(tokens, encryptionKey);
     await writeFile(this.authPath, serialized, { mode: 0o600 });
   }
 

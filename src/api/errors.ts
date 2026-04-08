@@ -6,15 +6,48 @@
 import { AppError } from '../core/errors.js';
 
 /**
+ * Programmatic error codes for API errors
+ * These codes can be used for programmatic error handling and internationalization
+ */
+export const ErrorCode = {
+  // General API errors
+  API_ERROR: 'API_ERROR',
+
+  // Authentication errors
+  AUTHENTICATION_ERROR: 'AUTHENTICATION_ERROR',
+  CSRF_EXTRACTION_ERROR: 'CSRF_EXTRACTION_ERROR',
+  COOKIE_VALIDATION_ERROR: 'COOKIE_VALIDATION_ERROR',
+
+  // RPC/Protocol errors
+  RPC_ERROR: 'RPC_ERROR',
+  PARSE_ERROR: 'PARSE_ERROR',
+
+  // Rate limiting and network
+  RATE_LIMIT_ERROR: 'RATE_LIMIT_ERROR',
+  NETWORK_ERROR: 'NETWORK_ERROR',
+  REQUEST_TIMEOUT_ERROR: 'REQUEST_TIMEOUT_ERROR',
+
+  // Resource errors
+  NOTEBOOK_NOT_FOUND: 'NOTEBOOK_NOT_FOUND',
+  SOURCE_NOT_FOUND: 'SOURCE_NOT_FOUND',
+
+  // Query errors
+  QUERY_REJECTED: 'QUERY_REJECTED',
+} as const;
+
+export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
+
+/**
  * Base class for all API-related errors
  */
 export class APIError extends AppError {
   constructor(
     message: string,
     public statusCode: number = 500,
-    public detail?: string
+    public detail?: string,
+    public code: ErrorCode = ErrorCode.API_ERROR
   ) {
-    super(message, 'API_ERROR', statusCode);
+    super(message, code, statusCode);
     this.name = 'APIError';
     Object.setPrototypeOf(this, APIError.prototype);
   }
@@ -28,7 +61,7 @@ export class AuthenticationError extends APIError {
     message: string = 'Authentication failed. Please run "notebooklm auth import" to re-authenticate.',
     public hint?: string
   ) {
-    super(message, 401);
+    super(message, 401, undefined, ErrorCode.AUTHENTICATION_ERROR);
     this.name = 'AuthenticationError';
     Object.setPrototypeOf(this, AuthenticationError.prototype);
   }
@@ -45,7 +78,7 @@ export class RPCError extends APIError {
     public detailType?: string,
     public detailData?: unknown
   ) {
-    super(message, 500);
+    super(message, 500, undefined, ErrorCode.RPC_ERROR);
     this.name = 'RPCError';
     Object.setPrototypeOf(this, RPCError.prototype);
   }
@@ -59,7 +92,7 @@ export class RateLimitError extends APIError {
     message: string = 'Rate limit exceeded. Please try again later.',
     public retryAfter?: number // seconds
   ) {
-    super(message, 429);
+    super(message, 429, undefined, ErrorCode.RATE_LIMIT_ERROR);
     this.name = 'RateLimitError';
     Object.setPrototypeOf(this, RateLimitError.prototype);
   }
@@ -73,7 +106,7 @@ export class NetworkError extends APIError {
     message: string = 'Network error. Please check your connection.',
     public originalError?: Error
   ) {
-    super(message, 503);
+    super(message, 503, undefined, ErrorCode.NETWORK_ERROR);
     this.name = 'NetworkError';
     Object.setPrototypeOf(this, NetworkError.prototype);
   }
@@ -87,7 +120,7 @@ export class RequestTimeoutError extends APIError {
     message: string = 'Request timed out. Please try again.',
     public timeoutMs?: number
   ) {
-    super(message, 408);
+    super(message, 408, undefined, ErrorCode.REQUEST_TIMEOUT_ERROR);
     this.name = 'RequestTimeoutError';
     Object.setPrototypeOf(this, RequestTimeoutError.prototype);
   }
@@ -101,7 +134,7 @@ export class CSRFExtractionError extends APIError {
     message: string = 'Failed to extract CSRF token. Cookies may be expired.',
     public htmlSnippet?: string
   ) {
-    super(message, 401);
+    super(message, 401, undefined, ErrorCode.CSRF_EXTRACTION_ERROR);
     this.name = 'CSRFExtractionError';
     Object.setPrototypeOf(this, CSRFExtractionError.prototype);
   }
@@ -115,7 +148,7 @@ export class CookieValidationError extends APIError {
     message: string,
     public missingCookies?: string[]
   ) {
-    super(message, 401);
+    super(message, 401, undefined, ErrorCode.COOKIE_VALIDATION_ERROR);
     this.name = 'CookieValidationError';
     Object.setPrototypeOf(this, CookieValidationError.prototype);
   }
@@ -132,7 +165,7 @@ export class QueryRejectedError extends APIError {
     public errorType?: string,
     public rawDetail?: string
   ) {
-    super(message, 400);
+    super(message, 400, undefined, ErrorCode.QUERY_REJECTED);
     this.name = 'QueryRejectedError';
     Object.setPrototypeOf(this, QueryRejectedError.prototype);
   }
@@ -143,7 +176,7 @@ export class QueryRejectedError extends APIError {
  */
 export class NotebookNotFoundError extends APIError {
   constructor(notebookId: string) {
-    super(`Notebook not found: ${notebookId}`, 404);
+    super(`Notebook not found: ${notebookId}`, 404, undefined, ErrorCode.NOTEBOOK_NOT_FOUND);
     this.name = 'NotebookNotFoundError';
     Object.setPrototypeOf(this, NotebookNotFoundError.prototype);
   }
@@ -154,7 +187,7 @@ export class NotebookNotFoundError extends APIError {
  */
 export class SourceNotFoundError extends APIError {
   constructor(sourceId: string) {
-    super(`Source not found: ${sourceId}`, 404);
+    super(`Source not found: ${sourceId}`, 404, undefined, ErrorCode.SOURCE_NOT_FOUND);
     this.name = 'SourceNotFoundError';
     Object.setPrototypeOf(this, SourceNotFoundError.prototype);
   }
@@ -169,7 +202,7 @@ export class ParseError extends APIError {
     public rawResponse?: string,
     public parseError?: Error
   ) {
-    super(message, 500);
+    super(message, 500, undefined, ErrorCode.PARSE_ERROR);
     this.name = 'ParseError';
     Object.setPrototypeOf(this, ParseError.prototype);
   }

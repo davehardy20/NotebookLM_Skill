@@ -153,7 +153,7 @@ export class ResponseCache {
   private generateKey(question: string, notebookUrl: string): string {
     const normalized = question.toLowerCase().trim();
     const keyData = `${normalized}:${notebookUrl}`;
-    return createHash('md5').update(keyData).digest('hex');
+    return createHash('sha256').update(keyData).digest('hex');
   }
 
   /**
@@ -170,7 +170,7 @@ export class ResponseCache {
     try {
       const data = await readFile(this.cacheFile, 'utf-8');
       const wasEncrypted = isEncrypted(data);
-      const parsed = parseStateData(data, requireEncryptionKeyFromEnv());
+      const parsed = await parseStateData(data, requireEncryptionKeyFromEnv());
       const state = PersistedCacheStateSchema.parse(parsed);
 
       for (const [key, entry] of Object.entries(state.entries)) {
@@ -221,7 +221,7 @@ export class ResponseCache {
         savedAt: Date.now() / 1000,
       };
 
-      const serialized = serializeStateData(state, requireEncryptionKeyFromEnv());
+      const serialized = await serializeStateData(state, requireEncryptionKeyFromEnv());
       await writeFile(this.cacheFile, serialized, 'utf-8');
 
       const paths = Paths.getInstance();
@@ -322,10 +322,7 @@ export class ResponseCache {
     for (const [key, entry] of Array.from(this.cache.entries())) {
       if (notebookUrl && entry.notebookUrl === notebookUrl) {
         toRemove.push(key);
-      } else if (
-        question &&
-        entry.question.toLowerCase().trim() === question.toLowerCase().trim()
-      ) {
+      } else if (entry.question.toLowerCase().trim() === question?.toLowerCase().trim()) {
         toRemove.push(key);
       }
     }

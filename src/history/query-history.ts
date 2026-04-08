@@ -51,7 +51,10 @@ export class QueryHistory {
     try {
       const content = await fs.readFile(this.historyFile, 'utf-8');
       const wasEncrypted = isEncrypted(content);
-      const data = parseStateData(content, requireEncryptionKeyFromEnv()) as QueryHistoryData;
+      const data = (await parseStateData(
+        content,
+        requireEncryptionKeyFromEnv()
+      )) as QueryHistoryData;
       this.queries = data.queries || [];
       logger.info(`📜 Loaded ${this.queries.length} queries from history`);
 
@@ -80,7 +83,7 @@ export class QueryHistory {
         lastUpdated: new Date().toISOString(),
       };
 
-      const serialized = serializeStateData(data, requireEncryptionKeyFromEnv());
+      const serialized = await serializeStateData(data, requireEncryptionKeyFromEnv());
       await fs.writeFile(this.historyFile, serialized, 'utf-8');
 
       const paths = Paths.getInstance();
