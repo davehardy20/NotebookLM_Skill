@@ -1,3 +1,4 @@
+import { logger } from '../core/logger.js';
 import { BaseClient } from './client.js';
 import {
   ChatGoals,
@@ -257,7 +258,9 @@ export class NotebookClient extends BaseClient {
             }
           }
         }
-      } catch {}
+      } catch (error) {
+        logger.debug('Failed to parse query response line:', error);
+      }
     }
 
     return longestAnswer;

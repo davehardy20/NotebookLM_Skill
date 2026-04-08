@@ -20,6 +20,7 @@ const NOTEBOOKLM_URL = 'https://notebooklm.google.com';
 const DEFAULT_CDP_PORT = 9222;
 const WS_TIMEOUT_MS = 30000;
 const LOGIN_WAIT_MS = 5000;
+const MIN_REQUIRED_COOKIES = 3;
 
 /**
  * Validated localhost hostnames for CDP connections
@@ -105,7 +106,7 @@ function validateWebSocketUrl(wsUrl: string): void {
 
     // Validate port is in valid range (Chrome uses high ports for debugging)
     const port = parseInt(url.port, 10);
-    if (isNaN(port) || port < 1024 || port > 65535) {
+    if (Number.isNaN(port) || port < 1024 || port > 65535) {
       throw new AuthError(`Invalid CDP port: ${url.port}`);
     }
   } catch (error) {
@@ -356,7 +357,11 @@ export class CDPAuthManager {
           });
         })
         .catch(error => {
-          reject(new AuthError(`Failed to load WebSocket module: ${error.message}`));
+          reject(
+            new AuthError(
+              `Failed to load WebSocket module: ${error instanceof Error ? error.message : String(error)}`
+            )
+          );
         });
     });
   }
@@ -500,7 +505,7 @@ export class CDPAuthManager {
     logger.debug('Checked Chrome NotebookLM authentication cookies', {
       hasRequiredCookies: foundCount >= requiredCount,
     });
-    return foundCount >= 3;
+    return foundCount >= MIN_REQUIRED_COOKIES;
   }
 
   async hasValidNotebookLMSession(cookies: Record<string, string>): Promise<boolean> {

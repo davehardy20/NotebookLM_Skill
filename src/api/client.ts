@@ -141,7 +141,21 @@ export class BaseClient {
       params.set('f.sid', this.authTokens.sessionId);
     }
 
-    return `${BATCHEXECUTE_URL}?${params.toString()}`;
+    const url = `${BATCHEXECUTE_URL}?${params.toString()}`;
+
+    // Validate URL is safe
+    try {
+      const parsed = new URL(url);
+      if (!parsed.hostname.endsWith('google.com')) {
+        throw new Error('Invalid URL: not a Google domain');
+      }
+    } catch (error) {
+      throw new Error(
+        `Failed to build valid URL: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+
+    return url;
   }
 
   /**

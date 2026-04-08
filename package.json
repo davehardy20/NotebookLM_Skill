@@ -53,6 +53,7 @@
     "chalk": "^4.1.2",
     "commander": "^12.0.0",
     "dotenv": "^16.6.1",
+    "oh-my-opencode": "3.15.3",
     "ora": "^5.4.1",
     "pino": "^8.19.0",
     "pino-pretty": "^10.3.1",
