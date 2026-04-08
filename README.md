@@ -173,7 +173,8 @@ google-chrome \
 notebooklm auth login
 ```
 
-**Note:** Chrome 136+ requires the `--user-data-dir` flag for remote debugging. The `--no-first-run` and `--no-default-browser-check` flags prevent first-run dialogs.
+**Note:** Chrome 136+ requires the `--user-data-dir` flag for remote debugging.  
+The `--no-first-run` and `--no-default-browser-check` flags prevent first-run dialogs.
 
 #### Option B: Import cookies from file
 
@@ -404,7 +405,8 @@ If you see this error when using `auth login`:
   --no-default-browser-check
 ```
 
-**Note:** Chrome 136 and later versions require the `--user-data-dir` flag for security reasons. The `--no-first-run` and `--no-default-browser-check` flags prevent Chrome from showing first-run dialogs.
+**Note:** Chrome 136 and later versions require the `--user-data-dir` flag for security reasons.  
+The `--no-first-run` and `--no-default-browser-check` flags prevent Chrome from showing first-run dialogs.
 
 ### Authentication expired
 
