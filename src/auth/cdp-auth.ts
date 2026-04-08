@@ -5,7 +5,7 @@
 
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { PAGE_FETCH_HEADERS, REQUIRED_COOKIES } from '../api/constants.js';
+import { CSRF_PATTERNS, PAGE_FETCH_HEADERS, REQUIRED_COOKIES } from '../api/constants.js';
 import type { AuthTokens } from '../api/types.js';
 import { requireEncryptionKeyFromEnv, serializeStateData } from '../core/crypto.js';
 import { AuthError, TimeoutError } from '../core/errors.js';
@@ -20,7 +20,6 @@ const NOTEBOOKLM_URL = 'https://notebooklm.google.com';
 const DEFAULT_CDP_PORT = 9222;
 const WS_TIMEOUT_MS = 30000;
 const LOGIN_WAIT_MS = 5000;
-const MIN_REQUIRED_COOKIES = 3;
 
 /**
  * Validated localhost hostnames for CDP connections
@@ -394,16 +393,23 @@ export class CDPAuthManager {
               const cdpCookies: CDPCookie[] = response.result.cookies ?? [];
 
               for (const cookie of cdpCookies) {
-                if (
-                  cookie.domain === 'notebooklm.google.com' ||
+                // Accept cookies from any Google domain
+                // Google services use various subdomains and cookie domain formats
+                const isGoogleDomain =
                   cookie.domain === '.google.com' ||
-                  cookie.domain === 'accounts.google.com'
-                ) {
+                  cookie.domain.endsWith('.google.com') ||
+                  cookie.domain === 'accounts.google.com' ||
+                  cookie.domain === 'notebooklm.google.com';
+
+                if (isGoogleDomain) {
                   cookieMap[cookie.name] = cookie.value;
                 }
               }
 
-              logger.debug('Extracted Chrome cookies for NotebookLM authentication');
+              logger.debug('Extracted Chrome cookies for NotebookLM authentication', {
+                extractedCookies: Object.keys(cookieMap),
+                totalCookies: cdpCookies.length,
+              });
 
               ws.close();
               resolve(cookieMap);
@@ -502,15 +508,19 @@ export class CDPAuthManager {
     const requiredCount = REQUIRED_COOKIES.length;
     const foundCount = REQUIRED_COOKIES.filter(name => cookies[name]).length;
     const foundCookies = REQUIRED_COOKIES.filter(name => cookies[name]);
+    const missingCookies = REQUIRED_COOKIES.filter(name => !cookies[name]);
 
     logger.debug('Checked Chrome NotebookLM authentication cookies', {
       hasRequiredCookies: foundCount >= requiredCount,
       foundCount,
       requiredCount,
       foundCookies,
+      missingCookies,
       allCookies: Object.keys(cookies),
     });
-    return foundCount >= MIN_REQUIRED_COOKIES;
+
+    // Require all 5 cookies for consistent validation
+    return foundCount >= requiredCount;
   }
 
   async hasValidNotebookLMSession(cookies: Record<string, string>): Promise<boolean> {
@@ -673,14 +683,22 @@ export class CDPAuthManager {
         };
       }
 
-      // Step 6: Create AuthTokens
+      // Step 6: Extract CSRF token from the page
+      logger.debug('Extracting CSRF token from NotebookLM page...');
+      const csrfToken = await this.extractCSRFTokenFromPage(cookies);
+
+      if (!csrfToken) {
+        logger.warn('Could not extract CSRF token, API calls may fail');
+      }
+
+      // Step 7: Create AuthTokens
       const tokens: AuthTokens = {
         cookies,
-        csrfToken: '',
+        csrfToken,
         extractedAt: Date.now(),
       };
 
-      // Step 7: Save auth
+      // Step 8: Save auth
       await this.saveAuth(tokens);
 
       return {
@@ -695,6 +713,42 @@ export class CDPAuthManager {
         error: error instanceof Error ? error.message : 'Unknown error during authentication',
         needsLogin: false,
       };
+    }
+  }
+
+  async extractCSRFTokenFromPage(cookies: Record<string, string>): Promise<string> {
+    try {
+      const cookieHeader = Object.entries(cookies)
+        .map(([name, value]) => `${name}=${value}`)
+        .join('; ');
+
+      const response = await fetch(NOTEBOOKLM_URL, {
+        headers: {
+          ...PAGE_FETCH_HEADERS,
+          Cookie: cookieHeader,
+        },
+        redirect: 'follow',
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch NotebookLM page: HTTP ${response.status}`);
+      }
+
+      const html = await response.text();
+
+      // Extract CSRF token using patterns from constants
+      for (const pattern of CSRF_PATTERNS) {
+        const match = html.match(pattern);
+        if (match) {
+          logger.debug('Extracted CSRF token from NotebookLM page');
+          return match[1];
+        }
+      }
+
+      throw new Error('CSRF token not found in page HTML');
+    } catch (error) {
+      logger.warn('Failed to extract CSRF token:', error);
+      return '';
     }
   }
 

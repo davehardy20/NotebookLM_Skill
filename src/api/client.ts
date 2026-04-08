@@ -252,7 +252,7 @@ export class BaseClient {
               if (typeof errorCode === 'number') {
                 if (errorCode === 16) {
                   throw new AuthenticationError(
-                    'Authentication expired. Please re-import your cookies.'
+                    'Session invalid. Please run "notebooklm auth import" to re-authenticate.'
                   );
                 }
 
@@ -337,7 +337,9 @@ export class BaseClient {
 
       const url = response.url;
       if (url.includes('accounts.google.com')) {
-        throw new CSRFExtractionError('Redirected to login page. Cookies are expired.');
+        throw new CSRFExtractionError(
+          'Redirected to Google login. Session may be invalid or expired.'
+        );
       }
 
       const html = await response.text();

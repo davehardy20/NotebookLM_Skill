@@ -111,8 +111,14 @@ async function handleImportCommand(options: AuthImportOptions): Promise<void> {
     const client = new NotebookClient(tokens);
     await client.refreshCSRFToken();
 
+    const updatedTokens: AuthTokens = {
+      cookies: tokens.cookies,
+      csrfToken: client['authTokens'].csrfToken,
+      extractedAt: tokens.extractedAt,
+    };
+
     spinner.text = 'Saving authentication...';
-    await authManager.saveAuth(tokens);
+    await authManager.saveAuth(updatedTokens);
 
     spinner.succeed(chalk.green('Authentication successful!'));
     console.log('\n✓ You are now authenticated with NotebookLM');
