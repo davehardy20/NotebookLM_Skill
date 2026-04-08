@@ -1,5 +1,5 @@
-import { logger } from '../core/logger.js';
 import { randomBytes } from 'node:crypto';
+import { logger } from '../core/logger.js';
 import {
   BATCHEXECUTE_URL,
   BL_FALLBACK,
