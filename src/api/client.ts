@@ -1,4 +1,4 @@
-import { randomInt } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import {
   BATCHEXECUTE_URL,
   BL_FALLBACK,
@@ -32,11 +32,18 @@ import type { AuthTokens, RPCRequest } from './types.js';
  */
 export class BaseClient {
   protected authTokens: AuthTokens;
-  private reqidCounter: number;
 
   constructor(authTokens: AuthTokens) {
     this.authTokens = authTokens;
-    this.reqidCounter = randomInt(100000, 1000000);
+  }
+
+  /**
+   * Generate a cryptographically secure request ID
+   */
+  private generateRequestId(): string {
+    // Generate 16 bytes (128 bits) of randomness for request ID
+    // This provides sufficient entropy to prevent enumeration attacks
+    return randomBytes(16).toString('hex');
   }
 
   /**
@@ -383,12 +390,10 @@ export class BaseClient {
    * Query endpoint for streaming responses
    */
   protected buildQueryURL(): string {
-    this.reqidCounter += 100000;
-
     const params = new URLSearchParams({
       bl: this.authTokens.buildLabel || BL_FALLBACK,
       hl: 'en',
-      _reqid: String(this.reqidCounter),
+      _reqid: this.generateRequestId(),
       rt: 'c',
     });
 
