@@ -1,3 +1,4 @@
+import { logger } from '../core/logger.js';
 import { randomBytes } from 'node:crypto';
 import {
   BATCHEXECUTE_URL,
@@ -323,12 +324,28 @@ export class BaseClient {
    */
   async refreshCSRFToken(): Promise<void> {
     try {
+      const cookieHeader = this.buildCookieHeader();
+      logger.debug('Fetching NotebookLM page for CSRF token', {
+        url: NOTEBOOKLM_BASE_URL + '/',
+        cookieCount: Object.keys(this.authTokens.cookies).length,
+        cookieNames: Object.keys(this.authTokens.cookies),
+        cookieHeaderLength: cookieHeader.length,
+      });
+
       const response = await fetch(NOTEBOOKLM_BASE_URL + '/', {
         headers: {
           ...PAGE_FETCH_HEADERS,
-          Cookie: this.buildCookieHeader(),
+          Cookie: cookieHeader,
         },
         redirect: 'follow',
+      });
+
+      logger.debug('NotebookLM page response', {
+        status: response.status,
+        statusText: response.statusText,
+        finalUrl: response.url,
+        redirected: response.redirected,
+        headers: Object.fromEntries(response.headers.entries()),
       });
 
       if (!response.ok) {
@@ -337,13 +354,28 @@ export class BaseClient {
 
       const url = response.url;
       if (url.includes('accounts.google.com')) {
+        logger.debug('Redirected to Google login page', {
+          finalUrl: url,
+          cookiesPresent: Object.keys(this.authTokens.cookies),
+        });
         throw new CSRFExtractionError(
           'Redirected to Google login. Session may be invalid or expired.'
         );
       }
 
       const html = await response.text();
+      logger.debug('Received HTML response', {
+        htmlLength: html.length,
+        hasCSRF: CSRF_PATTERNS.some(p => p.test(html)),
+      });
+
       this.extractTokensFromHTML(html);
+
+      logger.debug('Successfully extracted tokens', {
+        hasCSRF: !!this.authTokens.csrfToken,
+        hasSessionId: !!this.authTokens.sessionId,
+        hasBuildLabel: !!this.authTokens.buildLabel,
+      });
     } catch (error) {
       if (error instanceof CSRFExtractionError) {
         throw error;
