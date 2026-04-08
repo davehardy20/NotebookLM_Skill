@@ -3,20 +3,15 @@
  * Extracts cookies from Chrome using CDP for NotebookLM authentication
  */
 
-import { readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PAGE_FETCH_HEADERS, REQUIRED_COOKIES } from '../api/constants.js';
 import type { AuthTokens } from '../api/types.js';
-import {
-  isEncrypted,
-  parseStateData,
-  requireEncryptionKeyFromEnv,
-  serializeStateData,
-} from '../core/crypto.js';
+import { requireEncryptionKeyFromEnv, serializeStateData } from '../core/crypto.js';
 import { AuthError, TimeoutError } from '../core/errors.js';
 import { logger } from '../core/logger.js';
 import { Paths } from '../core/paths.js';
+import { loadAuthFromFile } from './auth-utils.js';
 
 const AUTH_FILE = 'auth.json';
 const CDP_VERSION_URL = 'http://localhost:{port}/json/version';
@@ -25,6 +20,12 @@ const NOTEBOOKLM_URL = 'https://notebooklm.google.com';
 const DEFAULT_CDP_PORT = 9222;
 const WS_TIMEOUT_MS = 30000;
 const LOGIN_WAIT_MS = 5000;
+
+/**
+ * Validated localhost hostnames for CDP connections
+ * Prevents DNS rebinding and connection hijacking attacks
+ */
+const ALLOWED_CDP_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '[0:0:0:0:0:0:0:1]']);
 
 /**
  * CDP Target info from /json/list endpoint
@@ -53,7 +54,7 @@ interface CDPVersion {
 }
 
 /**
- * CDP Cookie object from Network.getCookies response
+ * CDP Cookie structure from Network.getAllCookies
  */
 interface CDPCookie {
   name: string;
@@ -61,31 +62,63 @@ interface CDPCookie {
   domain: string;
   path: string;
   expires: number;
-  size: number;
   httpOnly: boolean;
   secure: boolean;
-  session: boolean;
-  priority: string;
-  sameParty: boolean;
-  sourceScheme: string;
-  sourcePort: number;
-  partitionKey?: string;
-  partitionKeyOpaque?: boolean;
+  sameSite?: string;
 }
 
 /**
- * Result from CDP authentication attempt
+ * CDP authentication result
  */
 export interface CDPAuthResult {
   success: boolean;
   tokens?: AuthTokens;
   error?: string;
-  needsLogin?: boolean;
+  needsLogin: boolean;
 }
 
 /**
- * Chrome DevTools Protocol Authentication Manager
- * Connects to Chrome via CDP and extracts cookies for NotebookLM
+ * Validates that a WebSocket URL is safe to connect to
+ * Only allows connections to localhost to prevent DNS rebinding attacks
+ *
+ * @param wsUrl - The WebSocket URL to validate
+ * @throws AuthError if URL is not localhost
+ */
+function validateWebSocketUrl(wsUrl: string): void {
+  try {
+    const url = new URL(wsUrl);
+
+    // Only allow WebSocket protocols
+    if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
+      throw new AuthError(`Invalid WebSocket protocol: ${url.protocol}`);
+    }
+
+    // Only allow localhost connections for security
+    // This prevents DNS rebinding attacks where an attacker could redirect
+    // to an external server
+    if (!ALLOWED_CDP_HOSTS.has(url.hostname)) {
+      throw new AuthError(
+        `CDP WebSocket connection refused: ${url.hostname} is not localhost. ` +
+          'For security, only local Chrome debugging connections are allowed.'
+      );
+    }
+
+    // Validate port is in valid range (Chrome uses high ports for debugging)
+    const port = parseInt(url.port, 10);
+    if (isNaN(port) || port < 1024 || port > 65535) {
+      throw new AuthError(`Invalid CDP port: ${url.port}`);
+    }
+  } catch (error) {
+    if (error instanceof AuthError) {
+      throw error;
+    }
+    throw new AuthError(`Invalid WebSocket URL: ${error}`);
+  }
+}
+
+/**
+ * Manages authentication using Chrome DevTools Protocol
+ * Extracts cookies from a running Chrome instance
  */
 export class CDPAuthManager {
   private paths: Paths;
@@ -99,78 +132,157 @@ export class CDPAuthManager {
   }
 
   /**
-   * Check if Chrome is running with remote debugging enabled
+   * Check if Chrome is running with CDP enabled
    */
   async isChromeRunning(): Promise<boolean> {
     try {
-      const versionUrl = CDP_VERSION_URL.replace('{port}', String(this.port));
-      const response = await fetch(versionUrl, { method: 'GET' });
-      return response.ok;
-    } catch {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(CDP_VERSION_URL.replace('{port}', String(this.port)), {
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        return false;
+      }
+
+      const version = (await response.json()) as CDPVersion;
+      logger.debug('Chrome CDP available', {
+        browser: version.Browser,
+        protocolVersion: version['Protocol-Version'],
+      });
+
+      return true;
+    } catch (error) {
+      logger.debug('Chrome not running or CDP not enabled:', error);
       return false;
     }
   }
 
   /**
-   * Get Chrome version information
-   */
-  async getChromeVersion(): Promise<CDPVersion | null> {
-    try {
-      const versionUrl = CDP_VERSION_URL.replace('{port}', String(this.port));
-      const response = await fetch(versionUrl, { method: 'GET' });
-      if (!response.ok) {
-        return null;
-      }
-      return (await response.json()) as CDPVersion;
-    } catch (error) {
-      logger.debug('Failed to get Chrome version:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Get list of available CDP targets (pages)
-   */
-  async getTargets(): Promise<CDPTarget[]> {
-    const listUrl = CDP_LIST_URL.replace('{port}', String(this.port));
-    const response = await fetch(listUrl, { method: 'GET' });
-    if (!response.ok) {
-      throw new AuthError(`Failed to get CDP targets: ${response.status} ${response.statusText}`);
-    }
-    return (await response.json()) as CDPTarget[];
-  }
-
-  /**
-   * Find a target that matches NotebookLM or create a new one
+   * Find an existing NotebookLM tab or create a new one
    */
   async findOrCreateNotebookLMTarget(): Promise<CDPTarget> {
-    const targets = await this.getTargets();
+    // First, try to find an existing NotebookLM tab
+    const targets = await this.listCDPTargets();
 
-    // First, look for an existing NotebookLM page
     const notebookLMTarget = targets.find(
-      t => t.url.includes('notebooklm.google.com') || t.title.includes('NotebookLM')
+      (target: CDPTarget) =>
+        target.url.includes('notebooklm.google.com') || target.title.includes('NotebookLM')
     );
 
     if (notebookLMTarget) {
-      logger.debug('Found existing NotebookLM target:', notebookLMTarget.id);
+      logger.debug('Found existing NotebookLM tab', {
+        id: notebookLMTarget.id,
+        title: notebookLMTarget.title,
+      });
       return notebookLMTarget;
     }
 
-    // Look for any page we can use
-    const usableTarget = targets.find(t => t.type === 'page' && t.webSocketDebuggerUrl);
+    // No existing tab, create a new one
+    logger.debug('Creating new NotebookLM tab...');
+    return this.createNewTab(NOTEBOOKLM_URL);
+  }
 
-    if (usableTarget) {
-      logger.debug('Using existing page target:', usableTarget.id);
-      return usableTarget;
+  /**
+   * List all CDP targets/tabs
+   */
+  async listCDPTargets(): Promise<CDPTarget[]> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const response = await fetch(CDP_LIST_URL.replace('{port}', String(this.port)), {
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        throw new AuthError(`Failed to list CDP targets: ${response.status}`);
+      }
+
+      return (await response.json()) as CDPTarget[];
+    } catch (error) {
+      clearTimeout(timeout);
+      throw new AuthError(`Failed to list CDP targets: ${error}`);
     }
+  }
 
-    throw new AuthError('No usable Chrome pages found. Please open a tab in Chrome and try again.');
+  /**
+   * Create a new tab via CDP
+   */
+  async createNewTab(url: string): Promise<CDPTarget> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+
+    try {
+      const response = await fetch(
+        `http://localhost:${this.port}/json/new?${encodeURIComponent(url)}`,
+        {
+          method: 'PUT',
+          signal: controller.signal,
+        }
+      );
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        throw new AuthError(`Failed to create new tab: ${response.status}`);
+      }
+
+      const target = (await response.json()) as CDPTarget;
+      logger.debug('Created new tab', { id: target.id, url: target.url });
+
+      return target;
+    } catch (error) {
+      clearTimeout(timeout);
+      throw new AuthError(`Failed to create new tab: ${error}`);
+    }
   }
 
   /**
    * Connect to a CDP target via WebSocket and execute commands
+   * Includes retry logic for transient failures and connection state tracking
    */
   async connectToTarget<T>(
+    target: CDPTarget,
+    command: (
+      ws: import('ws').WebSocket,
+      resolve: (value: T) => void,
+      reject: (error: Error) => void
+    ) => void,
+    maxRetries: number = 2
+  ): Promise<T> {
+    let lastError: Error | undefined;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (attempt > 0) {
+        logger.debug(`Retrying CDP connection (attempt ${attempt}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+      }
+
+      try {
+        return await this.connectToTargetOnce(target, command);
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Don't retry on certain errors
+        if (lastError.message.includes('not running') || lastError.message.includes('refused')) {
+          throw lastError;
+        }
+
+        logger.debug(`CDP connection attempt ${attempt + 1} failed:`, lastError.message);
+      }
+    }
+
+    throw lastError || new AuthError('Failed to connect to CDP after multiple attempts');
+  }
+
+  private async connectToTargetOnce<T>(
     target: CDPTarget,
     command: (
       ws: import('ws').WebSocket,
@@ -181,28 +293,66 @@ export class CDPAuthManager {
     return new Promise((resolve, reject) => {
       const wsUrl = target.webSocketDebuggerUrl;
 
+      // SECURITY: Validate WebSocket URL before connecting
+      // This prevents DNS rebinding attacks by ensuring we only connect to localhost
+      try {
+        validateWebSocketUrl(wsUrl);
+      } catch (error) {
+        reject(error);
+        return;
+      }
+
+      let isConnected = false;
+      let isClosed = false;
+
       // Dynamically import ws for WebSocket support
       import('ws')
         .then(({ default: WebSocket }) => {
           const ws = new WebSocket(wsUrl);
+
           const timeout = setTimeout(() => {
-            ws.close();
-            reject(new TimeoutError('CDP WebSocket connection timed out'));
+            if (!isClosed) {
+              isClosed = true;
+              ws.terminate();
+              reject(new TimeoutError('CDP WebSocket connection timed out'));
+            }
           }, WS_TIMEOUT_MS);
 
           ws.on('open', () => {
+            isConnected = true;
             logger.debug('CDP WebSocket connected');
             clearTimeout(timeout);
             command(ws, resolve, reject);
           });
 
           ws.on('error', (error: Error) => {
-            clearTimeout(timeout);
-            reject(new AuthError(`CDP WebSocket error: ${error.message}`));
+            if (!isClosed) {
+              isClosed = true;
+              clearTimeout(timeout);
+              ws.terminate();
+              reject(new AuthError(`CDP WebSocket error: ${error.message}`));
+            }
           });
 
-          ws.on('close', () => {
-            logger.debug('CDP WebSocket closed');
+          ws.on('close', (code: number, _reason: Buffer) => {
+            if (!isClosed) {
+              isClosed = true;
+              clearTimeout(timeout);
+              if (!isConnected) {
+                reject(new AuthError(`CDP WebSocket closed before connection (code: ${code})`));
+              } else {
+                logger.debug('CDP WebSocket closed');
+              }
+            }
+          });
+
+          ws.on('unexpected-response', (_request, response) => {
+            if (!isClosed) {
+              isClosed = true;
+              clearTimeout(timeout);
+              ws.terminate();
+              reject(new AuthError(`CDP unexpected response: ${response.statusCode}`));
+            }
           });
         })
         .catch(error => {
@@ -236,7 +386,7 @@ export class CDPAuthManager {
             }
 
             if (response.id === messageId && response.result) {
-              const cdpCookies: CDPCookie[] = response.result.cookies || [];
+              const cdpCookies: CDPCookie[] = response.result.cookies ?? [];
 
               for (const cookie of cdpCookies) {
                 if (
@@ -280,6 +430,14 @@ export class CDPAuthManager {
       let messageId = 0;
       let pageNavigated = false;
 
+      // BUG FIX: Store timeout reference so we can clear it on success
+      const navigationTimeout = setTimeout(() => {
+        if (!pageNavigated) {
+          ws.close();
+          resolve(false);
+        }
+      }, WS_TIMEOUT_MS);
+
       ws.on('message', (data: Buffer) => {
         try {
           const response = JSON.parse(data.toString()) as { error?: unknown; method?: string };
@@ -293,6 +451,9 @@ export class CDPAuthManager {
           if (response.method === 'Page.loadEventFired') {
             logger.debug('Page loaded');
             pageNavigated = true;
+
+            // BUG FIX: Clear the timeout when navigation succeeds
+            clearTimeout(navigationTimeout);
 
             // Give the page a moment to settle
             setTimeout(() => {
@@ -325,14 +486,6 @@ export class CDPAuthManager {
           },
         })
       );
-
-      // Set a timeout for navigation
-      setTimeout(() => {
-        if (!pageNavigated) {
-          ws.close();
-          resolve(false);
-        }
-      }, WS_TIMEOUT_MS);
     });
   }
 
@@ -510,6 +663,7 @@ export class CDPAuthManager {
       return {
         success: true,
         tokens,
+        needsLogin: false,
       };
     } catch (error) {
       logger.error('CDP authentication failed:', error);
@@ -535,22 +689,7 @@ export class CDPAuthManager {
    * Load authentication tokens from file
    */
   async loadAuth(): Promise<AuthTokens | null> {
-    try {
-      const content = readFileSync(this.authPath, 'utf-8');
-      if (!isEncrypted(content)) {
-        throw new Error(
-          'Existing authentication data is stored insecurely. Delete auth.json and re-authenticate after setting STATE_ENCRYPTION_KEY.'
-        );
-      }
-
-      return parseStateData(content, requireEncryptionKeyFromEnv()) as AuthTokens;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        return null;
-      }
-
-      throw error;
-    }
+    return loadAuthFromFile(this.authPath);
   }
 
   /**
