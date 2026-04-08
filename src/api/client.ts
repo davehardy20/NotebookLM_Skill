@@ -181,7 +181,11 @@ export class BaseClient {
    */
   protected buildCookieHeader(): string {
     return Object.entries(this.authTokens.cookies)
-      .map(([name, value]) => `${name}=${value}`)
+      .map(([name, value]) => {
+        // URL-encode cookie values to handle special characters like / and =
+        const encodedValue = encodeURIComponent(value);
+        return `${name}=${encodedValue}`;
+      })
       .join('; ');
   }
 
@@ -325,28 +329,24 @@ export class BaseClient {
   async refreshCSRFToken(): Promise<void> {
     try {
       const cookieHeader = this.buildCookieHeader();
-      logger.debug('Fetching NotebookLM page for CSRF token', {
-        url: NOTEBOOKLM_BASE_URL + '/',
-        cookieCount: Object.keys(this.authTokens.cookies).length,
-        cookieNames: Object.keys(this.authTokens.cookies),
-        cookieHeaderLength: cookieHeader.length,
-      });
+
+      logger.debug(`Cookie header being sent: ${cookieHeader}`);
+      logger.debug(`Number of cookies: ${Object.keys(this.authTokens.cookies).length}`);
+      logger.debug(`Cookie names: ${Object.keys(this.authTokens.cookies).join(', ')}`);
 
       const response = await fetch(NOTEBOOKLM_BASE_URL + '/', {
         headers: {
           ...PAGE_FETCH_HEADERS,
           Cookie: cookieHeader,
+          Origin: 'https://notebooklm.google.com',
+          Referer: 'https://notebooklm.google.com/',
         },
         redirect: 'follow',
       });
 
-      logger.debug('NotebookLM page response', {
-        status: response.status,
-        statusText: response.statusText,
-        finalUrl: response.url,
-        redirected: response.redirected,
-        headers: Object.fromEntries(response.headers.entries()),
-      });
+      logger.debug(`Response status: ${response.status}`);
+      logger.debug(`Response URL: ${response.url}`);
+      logger.debug(`Was redirected: ${response.redirected}`);
 
       if (!response.ok) {
         throw new CSRFExtractionError(`Failed to fetch NotebookLM page: HTTP ${response.status}`);
@@ -354,28 +354,19 @@ export class BaseClient {
 
       const url = response.url;
       if (url.includes('accounts.google.com')) {
-        logger.debug('Redirected to Google login page', {
-          finalUrl: url,
-          cookiesPresent: Object.keys(this.authTokens.cookies),
-        });
+        logger.debug('Redirected to Google login page - cookies rejected');
+        logger.debug(`Cookies that were sent: ${Object.keys(this.authTokens.cookies).join(', ')}`);
         throw new CSRFExtractionError(
           'Redirected to Google login. Session may be invalid or expired.'
         );
       }
 
       const html = await response.text();
-      logger.debug('Received HTML response', {
-        htmlLength: html.length,
-        hasCSRF: CSRF_PATTERNS.some(p => p.test(html)),
-      });
+      logger.debug(`HTML length: ${html.length}`);
 
       this.extractTokensFromHTML(html);
 
-      logger.debug('Successfully extracted tokens', {
-        hasCSRF: !!this.authTokens.csrfToken,
-        hasSessionId: !!this.authTokens.sessionId,
-        hasBuildLabel: !!this.authTokens.buildLabel,
-      });
+      logger.debug(`CSRF token extracted: ${!!this.authTokens.csrfToken}`);
     } catch (error) {
       if (error instanceof CSRFExtractionError) {
         throw error;

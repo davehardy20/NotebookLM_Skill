@@ -148,18 +148,32 @@ auth/cache/history files and authenticate again.
 
 ```bash
 # Start Chrome with remote debugging enabled
-# macOS:
-/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
+# macOS (Chrome 136+ requires --user-data-dir):
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --remote-debugging-port=9222 \
+  --user-data-dir=/tmp/chrome-notebooklm \
+  --no-first-run \
+  --no-default-browser-check
 
 # Linux:
-google-chrome --remote-debugging-port=9222
+google-chrome \
+  --remote-debugging-port=9222 \
+  --user-data-dir=/tmp/chrome-notebooklm \
+  --no-first-run \
+  --no-default-browser-check
 
 # Windows:
-"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
+"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" ^
+  --remote-debugging-port=9222 ^
+  --user-data-dir=C:\Temp\chrome-notebooklm ^
+  --no-first-run ^
+  --no-default-browser-check
 
 # In another terminal, authenticate
 notebooklm auth login
 ```
+
+**Note:** Chrome 136+ requires the `--user-data-dir` flag for remote debugging. The `--no-first-run` and `--no-default-browser-check` flags prevent first-run dialogs.
 
 #### Option B: Import cookies from file
 
@@ -189,7 +203,12 @@ notebooklm notebook add \
 export STATE_ENCRYPTION_KEY="replace-this-with-a-unique-32-plus-character-secret"
 
 # Start Chrome with remote debugging (in a separate terminal)
-chrome --remote-debugging-port=9222
+# Note: Chrome 136+ requires --user-data-dir flag
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --remote-debugging-port=9222 \
+  --user-data-dir=/tmp/chrome-notebooklm \
+  --no-first-run \
+  --no-default-browser-check
 
 # Authenticate using CDP
 notebooklm auth login
@@ -256,14 +275,22 @@ This method connects to a running Chrome instance and extracts authentication co
 
 **Setup:**
 
-1. Start Chrome with remote debugging:
+1. Start Chrome with remote debugging (Chrome 136+ requires `--user-data-dir`):
 
    ```bash
    # macOS
-   /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222
+   /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+     --remote-debugging-port=9222 \
+     --user-data-dir=/tmp/chrome-notebooklm \
+     --no-first-run \
+     --no-default-browser-check
 
    # Linux
-   google-chrome --remote-debugging-port=9222
+   google-chrome \
+     --remote-debugging-port=9222 \
+     --user-data-dir=/tmp/chrome-notebooklm \
+     --no-first-run \
+     --no-default-browser-check
    ```
 
 2. Log in to [NotebookLM](https://notebooklm.google.com) in Chrome
@@ -279,6 +306,8 @@ This method connects to a running Chrome instance and extracts authentication co
 - No manual cookie export needed
 - Automatic token refresh
 - Seamless integration with your existing Chrome session
+
+**Note:** Chrome 136 and later require the `--user-data-dir` flag for remote debugging security.
 
 ### Method 2: Cookie Import
 
@@ -367,9 +396,15 @@ NOTEBOOKLM_LOG_LEVEL=debug  # debug, info, warn, error
 If you see this error when using `auth login`:
 
 ```bash
-# Start Chrome with remote debugging
-chrome --remote-debugging-port=9222
+# Start Chrome with remote debugging (Chrome 136+ requires --user-data-dir)
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --remote-debugging-port=9222 \
+  --user-data-dir=/tmp/chrome-notebooklm \
+  --no-first-run \
+  --no-default-browser-check
 ```
+
+**Note:** Chrome 136 and later versions require the `--user-data-dir` flag for security reasons. The `--no-first-run` and `--no-default-browser-check` flags prevent Chrome from showing first-run dialogs.
 
 ### Authentication expired
 

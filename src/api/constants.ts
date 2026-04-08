@@ -444,7 +444,16 @@ export const QUERY_ENDPOINT =
   '/_/LabsTailwindUi/data/google.internal.labs.tailwind.orchestration.v1.LabsTailwindOrchestrationService/GenerateFreeFormStreamed';
 
 // Required cookies for authentication
-export const REQUIRED_COOKIES = ['SID', 'HSID', 'SSID', 'APISID', 'SAPISID'];
+// Modern Google services require both standard and Secure variants
+export const REQUIRED_COOKIES = [
+  'SID',
+  'HSID',
+  'SSID',
+  'APISID',
+  'SAPISID',
+  '__Secure-1PSID',
+  '__Secure-3PSID',
+];
 
 // Timeout configuration (seconds)
 export const DEFAULT_TIMEOUT = 30.0;
@@ -463,14 +472,17 @@ export const DEFAULT_MAX_DELAY = 60.0;
 // Headers required for page fetch (must look like a browser navigation)
 export const PAGE_FETCH_HEADERS = {
   'User-Agent':
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   Accept:
-    'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+    'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
   'Accept-Language': 'en-US,en;q=0.9',
+  'Accept-Encoding': 'gzip, deflate, br',
   'Sec-Fetch-Dest': 'document',
   'Sec-Fetch-Mode': 'navigate',
   'Sec-Fetch-Site': 'none',
   'Sec-Fetch-User': '?1',
+  'Upgrade-Insecure-Requests': '1',
+  Priority: 'u=0, i',
 };
 
 // Default RPC request headers
