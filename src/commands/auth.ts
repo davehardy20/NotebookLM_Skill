@@ -113,7 +113,7 @@ async function handleImportCommand(options: AuthImportOptions): Promise<void> {
 
     const updatedTokens: AuthTokens = {
       cookies: tokens.cookies,
-      csrfToken: client['authTokens'].csrfToken,
+      csrfToken: (client as unknown as { authTokens: { csrfToken: string } }).authTokens.csrfToken,
       extractedAt: tokens.extractedAt,
     };
 
