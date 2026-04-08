@@ -501,9 +501,14 @@ export class CDPAuthManager {
     const cookies = await this.extractCookies(target);
     const requiredCount = REQUIRED_COOKIES.length;
     const foundCount = REQUIRED_COOKIES.filter(name => cookies[name]).length;
+    const foundCookies = REQUIRED_COOKIES.filter(name => cookies[name]);
 
     logger.debug('Checked Chrome NotebookLM authentication cookies', {
       hasRequiredCookies: foundCount >= requiredCount,
+      foundCount,
+      requiredCount,
+      foundCookies,
+      allCookies: Object.keys(cookies),
     });
     return foundCount >= MIN_REQUIRED_COOKIES;
   }
@@ -514,6 +519,11 @@ export class CDPAuthManager {
         .map(([name, value]) => `${name}=${value}`)
         .join('; ');
 
+      logger.debug('Validating NotebookLM session with cookies:', {
+        cookieCount: Object.keys(cookies).length,
+        cookieNames: Object.keys(cookies),
+      });
+
       const response = await fetch(NOTEBOOKLM_URL, {
         headers: {
           ...PAGE_FETCH_HEADERS,
@@ -522,7 +532,15 @@ export class CDPAuthManager {
         redirect: 'follow',
       });
 
-      return !response.url.includes('accounts.google.com');
+      const isValid = !response.url.includes('accounts.google.com');
+
+      logger.debug('Session validation result:', {
+        finalUrl: response.url,
+        isValid,
+        status: response.status,
+      });
+
+      return isValid;
     } catch (error) {
       logger.debug('Failed to verify NotebookLM session:', error);
       return false;

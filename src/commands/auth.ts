@@ -88,6 +88,9 @@ async function handleImportCommand(options: AuthImportOptions): Promise<void> {
     if (options.file) {
       spinner.text = `Reading cookies from ${options.file}...`;
       tokens = await authManager.importFromFile(options.file);
+
+      // Log what cookies were imported
+      console.log(chalk.dim('\nImported cookies:'), Object.keys(tokens.cookies).join(', '));
     } else if (options.clipboard) {
       spinner.fail('Clipboard import not yet implemented');
       console.log(chalk.yellow('Please use --file option instead'));

@@ -1,13 +1,6 @@
 import { logger } from '../core/logger.js';
 import { BaseClient } from './client.js';
-import {
-  ChatGoals,
-  ChatResponseLengths,
-  NOTEBOOKLM_BASE_URL,
-  OWNERSHIP_MINE,
-  RPC_HEADERS,
-  RPC_IDS,
-} from './constants.js';
+import { NOTEBOOKLM_BASE_URL, OWNERSHIP_MINE, RPC_HEADERS, RPC_IDS } from './constants.js';
 import { NotebookNotFoundError } from './errors.js';
 import type { Notebook, QueryResult, Source } from './types.js';
 
@@ -32,124 +25,67 @@ export class NotebookClient extends BaseClient {
   async getNotebook(notebookId: string): Promise<Notebook> {
     const result = await this.callRPC({
       rpcId: RPC_IDS.GET_NOTEBOOK,
-      params: [notebookId, null, [2], null, 0],
-      path: `/notebook/${notebookId}`,
+      params: [notebookId],
     });
-
-    if (!result) {
-      throw new NotebookNotFoundError(notebookId);
-    }
 
     return this.parseNotebookFromDetail(result, notebookId);
   }
 
-  async createNotebook(title: string = ''): Promise<Notebook> {
-    const params = [
-      title,
-      null,
-      null,
-      [2],
-      [1, null, null, null, null, null, null, null, null, null, [1]],
-    ];
-
+  async createNotebook(title: string): Promise<Notebook> {
     const result = await this.callRPC({
       rpcId: RPC_IDS.CREATE_NOTEBOOK,
-      params,
+      params: [title],
     });
 
-    if (!Array.isArray(result) || result.length < 3 || !result[2]) {
-      throw new Error('Failed to create notebook: invalid response');
+    if (Array.isArray(result) && result.length > 0) {
+      const notebookData = result[0];
+      if (Array.isArray(notebookData) && notebookData.length >= 3) {
+        return this.parseNotebookData(notebookData);
+      }
     }
 
-    return {
-      id: String(result[2]),
-      title: title || 'Untitled notebook',
-      sourceCount: 0,
-      sources: [],
-      isOwned: true,
-      isShared: false,
-    };
+    throw new Error('Failed to create notebook: invalid response');
   }
 
-  async renameNotebook(notebookId: string, newTitle: string): Promise<boolean> {
-    const params = [notebookId, [[null, null, null, [null, newTitle]]]];
-
-    const result = await this.callRPC({
-      rpcId: RPC_IDS.RENAME_NOTEBOOK,
-      params,
-      path: `/notebook/${notebookId}`,
-    });
-
-    return result !== null;
-  }
-
-  async deleteNotebook(notebookId: string): Promise<boolean> {
-    const params = [[notebookId], [2]];
-
-    const result = await this.callRPC({
-      rpcId: RPC_IDS.DELETE_NOTEBOOK,
-      params,
-    });
-
-    return result !== null;
-  }
-
-  async configureChat(
-    notebookId: string,
-    goal: 'default' | 'custom' | 'learning_guide' = 'default',
-    customPrompt?: string,
-    responseLength: 'default' | 'longer' | 'shorter' = 'default'
-  ): Promise<void> {
-    const goalCode = ChatGoals.getCode(goal);
-
-    if (goal === 'custom' && !customPrompt) {
-      throw new Error('customPrompt is required when goal is "custom"');
-    }
-
-    if (customPrompt && customPrompt.length > 10000) {
-      throw new Error(`custom_prompt exceeds 10000 chars (got ${customPrompt.length})`);
-    }
-
-    const lengthCode = ChatResponseLengths.getCode(responseLength);
-
-    const goalSetting = goal === 'custom' && customPrompt ? [goalCode, customPrompt] : [goalCode];
-
-    const chatSettings = [goalSetting, [lengthCode]];
-    const params = [notebookId, [[null, null, null, null, null, null, null, chatSettings]]];
-
+  async renameNotebook(notebookId: string, newTitle: string): Promise<void> {
     await this.callRPC({
       rpcId: RPC_IDS.RENAME_NOTEBOOK,
-      params,
-      path: `/notebook/${notebookId}`,
+      params: [notebookId, newTitle],
     });
   }
 
-  async getNotebookSummary(
-    notebookId: string
-  ): Promise<{ summary: string; suggestedTopics: Array<{ question: string; prompt: string }> }> {
+  async deleteNotebook(notebookId: string): Promise<void> {
+    await this.callRPC({
+      rpcId: RPC_IDS.DELETE_NOTEBOOK,
+      params: [notebookId],
+    });
+  }
+
+  async getNotebookSummary(notebookId: string): Promise<{
+    summary: string;
+    suggestedTopics: string[];
+  }> {
     const result = await this.callRPC({
       rpcId: RPC_IDS.GET_SUMMARY,
-      params: [notebookId, [2]],
-      path: `/notebook/${notebookId}`,
+      params: [notebookId],
     });
 
     let summary = '';
-    const suggestedTopics: Array<{ question: string; prompt: string }> = [];
+    const suggestedTopics: string[] = [];
 
-    if (Array.isArray(result)) {
-      if (result.length > 0 && Array.isArray(result[0]) && result[0].length > 0) {
-        summary = String(result[0][0]);
-      }
+    if (Array.isArray(result) && result.length > 0) {
+      const data = result[0];
 
-      if (result.length > 1 && result[1]) {
-        const topicsData = Array.isArray(result[1]) && result[1].length > 0 ? result[1][0] : [];
+      if (Array.isArray(data)) {
+        if (typeof data[0] === 'string') {
+          summary = data[0];
+        }
 
-        for (const topic of topicsData) {
-          if (Array.isArray(topic) && topic.length >= 2) {
-            suggestedTopics.push({
-              question: String(topic[0]),
-              prompt: String(topic[1]),
-            });
+        if (Array.isArray(data[1])) {
+          for (const topic of data[1]) {
+            if (typeof topic === 'string') {
+              suggestedTopics.push(topic);
+            }
           }
         }
       }
