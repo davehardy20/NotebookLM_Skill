@@ -235,11 +235,19 @@ async function handleLoginCommand(options: AuthLoginOptions): Promise<void> {
     } else {
       console.log(chalk.dim('\nTo start Chrome with remote debugging:'));
       console.log(
-        chalk.dim(
-          '  macOS: /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222'
-        )
+        chalk.dim('  macOS: /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome \\\n'),
+        chalk.dim('    --remote-debugging-port=9222 \\\n'),
+        chalk.dim('    --user-data-dir=/tmp/chrome-notebooklm \\\n'),
+        chalk.dim('    --no-first-run \\\n'),
+        chalk.dim('    --no-default-browser-check')
       );
-      console.log(chalk.dim('  Linux: google-chrome --remote-debugging-port=9222'));
+      console.log(
+        chalk.dim('  Linux: google-chrome \\\n'),
+        chalk.dim('    --remote-debugging-port=9222 \\\n'),
+        chalk.dim('    --user-data-dir=/tmp/chrome-notebooklm \\\n'),
+        chalk.dim('    --no-first-run \\\n'),
+        chalk.dim('    --no-default-browser-check')
+      );
     }
 
     process.exit(1);

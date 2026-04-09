@@ -571,9 +571,16 @@ export class CDPAuthManager {
           error:
             `Chrome is not running with remote debugging on port ${this.port}.\n` +
             'Please start Chrome with:\n' +
-            `  chrome --remote-debugging-port=${this.port}\n` +
+            `  chrome --remote-debugging-port=${this.port} \\\n` +
+            `    --user-data-dir=/tmp/chrome-notebooklm \\\n` +
+            `    --no-first-run \\\n` +
+            `    --no-default-browser-check\n` +
             'Or on macOS:\n' +
-            `  /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=${this.port}`,
+            `  /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome \\\n` +
+            `    --remote-debugging-port=${this.port} \\\n` +
+            `    --user-data-dir=/tmp/chrome-notebooklm \\\n` +
+            `    --no-first-run \\\n` +
+            `    --no-default-browser-check`,
           needsLogin: false,
         };
       }
@@ -777,9 +784,21 @@ export class CDPAuthManager {
 To use CDP authentication, Chrome must be running with remote debugging enabled.
 
 Start Chrome with:
-  Linux:   google-chrome --remote-debugging-port=${this.port}
-  macOS:   /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=${this.port}
-  Windows: "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=${this.port}
+  Linux:   google-chrome \\
+             --remote-debugging-port=${this.port} \\
+             --user-data-dir=/tmp/chrome-notebooklm \\
+             --no-first-run \\
+             --no-default-browser-check
+  macOS:   /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome \\
+             --remote-debugging-port=${this.port} \\
+             --user-data-dir=/tmp/chrome-notebooklm \\
+             --no-first-run \\
+             --no-default-browser-check
+  Windows: "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe" ^
+             --remote-debugging-port=${this.port} ^
+             --user-data-dir=C:\\Temp\\chrome-notebooklm ^
+             --no-first-run ^
+             --no-default-browser-check
 
 Then run: notebooklm auth login
 `;
